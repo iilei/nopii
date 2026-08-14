@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>nopii</id>
+    <version>0.0.0</version>
+    <title>nopii</title>
+    <authors>nopii contributors</authors>
+    <projectUrl>https://github.com/iilei/nopii</projectUrl>
+    <licenseUrl>https://github.com/iilei/nopii/blob/main/LICENSE</licenseUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>Deterministic PII pseudonymization for streams.</description>
+    <tags>pii privacy cli pseudonymization golang</tags>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>

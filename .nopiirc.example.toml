@@ -1,0 +1,15 @@
+version = 1
+scope = "default"
+
+[key]
+env = "NOPII_KEY"
+# file = "/run/secrets/nopii-key"
+
+[output]
+token_length = 12
+
+[recognizers]
+email = true
+ipv4 = true
+uuid = true
+phone = true
