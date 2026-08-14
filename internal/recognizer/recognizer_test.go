@@ -24,8 +24,9 @@ func TestScrubEmailAndIP(t *testing.T) {
 
 func TestScrubCustomClassifier(t *testing.T) {
 	cfg := config.Defaults()
-	cfg.Classifiers = map[string]string{"username": "USER"}
-	t.Setenv("NOPII_CUSTOM_PATTERN__USERNAME", `(?m)(?:^|[[:space:]])@([A-Za-z0-9_-]+)`)
+	cfg.Classifiers = map[string]config.ClassifierConfig{
+		"username": {Label: "USER", Pattern: `(?m)(?:^|[[:space:]])@([A-Za-z0-9_-]+)`},
+	}
 	g := pseudonym.New([]byte("secret"), "scope", 12)
 	e := recognizerpkg.New(&cfg, g)
 	out := e.ScrubString("owner @alice-simpson was here")

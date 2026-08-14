@@ -34,7 +34,12 @@ func TestDiscoverNearestConfig(t *testing.T) {
 
 func TestLoadConfigClassifiers(t *testing.T) {
 	path := filepath.Join(t.TempDir(), configpkg.FileName)
-	content := []byte("version = 1\n[classifiers]\nusername = \"USER\"\n")
+	content := []byte(
+		"version = 1\n" +
+			"[classifiers.username]\n" +
+			"label = \"USER\"\n" +
+			"pattern = '''(?m)(?:^|[[:space:]])@([A-Za-z0-9_-]+)'''\n",
+	)
 	if err := os.WriteFile(path, content, 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -42,7 +47,7 @@ func TestLoadConfigClassifiers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, ok := cfg.Classifiers["username"]; !ok || got != "USER" {
+	if got, ok := cfg.Classifiers["username"]; !ok || got.Label != "USER" || got.Pattern == "" {
 		t.Fatalf("expected classifier username mapping, got %#v", cfg.Classifiers)
 	}
 }

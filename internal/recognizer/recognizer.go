@@ -58,21 +58,25 @@ func New(cfg *config.Config, gen *pseudonym.Generator) *Engine {
 	if cfg.Recognizers.Phone {
 		rules = append(rules, rule{"PHONE", regexp.MustCompile(`(?m)(?:\+?\d[\d .()\-/]{6,}\d)`)})
 	}
-	if cfg.CustomPatterns != nil {
-		for name, pattern := range cfg.CustomPatterns {
-			label, ok := cfg.Classifiers[name]
-			if !ok || strings.TrimSpace(label) == "" {
-				label = strings.ToUpper(name)
+	for name, classifier := range cfg.Classifiers {
+		pattern := classifier.Pattern
+		if pattern == "" {
+			if custom, ok := cfg.CustomPatterns[name]; ok {
+				pattern = custom
 			}
-			if pattern == "" {
-				continue
-			}
-			compiled, err := regexp.Compile(pattern)
-			if err != nil {
-				continue
-			}
-			rules = append(rules, rule{classifyLabel(label), compiled})
 		}
+		if pattern == "" {
+			continue
+		}
+		label := classifier.Label
+		if strings.TrimSpace(label) == "" {
+			label = strings.ToUpper(name)
+		}
+		compiled, err := regexp.Compile(pattern)
+		if err != nil {
+			continue
+		}
+		rules = append(rules, rule{classifyLabel(label), compiled})
 	}
 	return &Engine{rules: rules, gen: gen}
 }

@@ -21,5 +21,6 @@ phone = true
 enabled             = true
 granularity_seconds = 86400  # floor timestamps to this boundary (e.g. 86400 = daily, 90d = 7776000)
 
-[classifiers]
-username = "USER"
+[classifiers.username]
+label   = "USER"
+pattern = '''(?m)(?:^|[[:space:]])@([A-Za-z0-9_-]+)'''

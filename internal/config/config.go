@@ -25,16 +25,24 @@ const (
 	configKeyParts            = 2
 	envKeyParts               = 2
 	customPatternPrefix       = "NOPII_CUSTOM_PATTERN__"
+	quotedStringMinLen        = 2
+	rawTOMLDelimiter          = "'''"
+	tripleQuoteLen            = 3
 )
 
 type (
+	ClassifierConfig struct {
+		Label   string
+		Pattern string
+	}
+
 	Config struct {
 		Version        int
 		Scope          string
 		Key            KeyConfig
 		Output         OutputConfig
 		Recognizers    RecognizersConfig
-		Classifiers    map[string]string
+		Classifiers    map[string]ClassifierConfig
 		CustomPatterns map[string]string
 		Git            GitConfig
 	}
@@ -67,7 +75,7 @@ func Defaults() Config {
 		Key:            KeyConfig{Env: defaultKeyEnv},
 		Output:         OutputConfig{TokenLength: defaultTokenLength},
 		Recognizers:    RecognizersConfig{Email: true, IPv4: true, UUID: true, Phone: true},
-		Classifiers:    map[string]string{},
+		Classifiers:    map[string]ClassifierConfig{},
 		CustomPatterns: map[string]string{},
 		Git: GitConfig{DateClamp: DateClampConfig{
 			Enabled:            false,
@@ -219,11 +227,24 @@ func stripComment(s string) string {
 }
 
 func parseString(v string) (string, error) {
-	u, err := strconv.Unquote(v)
-	if err != nil {
-		return "", fmt.Errorf("expected quoted string, got %q", v)
+	if len(v) >= quotedStringMinLen {
+		switch {
+		case v[0] == '"' && v[len(v)-1] == '"':
+			u, err := strconv.Unquote(v)
+			if err != nil {
+				return "", fmt.Errorf("expected quoted string, got %q", v)
+			}
+			return u, nil
+		case v[0] == '\'' && v[len(v)-1] == '\'':
+			if len(v) >= tripleQuoteLen*2 &&
+				strings.HasPrefix(v, rawTOMLDelimiter) &&
+				strings.HasSuffix(v, rawTOMLDelimiter) {
+				return v[tripleQuoteLen : len(v)-tripleQuoteLen], nil
+			}
+			return v[1 : len(v)-1], nil
+		}
 	}
-	return u, nil
+	return "", fmt.Errorf("expected quoted string, got %q", v)
 }
 
 func parseBool(v string) (bool, error) {
@@ -243,6 +264,13 @@ func parseInt(v string) (int, error) {
 }
 
 func setValue(c *Config, k, v string) error {
+	if strings.HasPrefix(k, "classifiers.") {
+		return setClassifierValue(c, k, v)
+	}
+	return setSimpleValue(c, k, v)
+}
+
+func setSimpleValue(c *Config, k, v string) error {
 	switch k {
 	case "version":
 		n, e := parseInt(v)
@@ -289,17 +317,36 @@ func setValue(c *Config, k, v string) error {
 		c.Git.DateClamp.GranularitySeconds = n
 		return e
 	default:
-		if strings.HasPrefix(k, "classifiers.") {
-			if c.Classifiers == nil {
-				c.Classifiers = map[string]string{}
-			}
-			name := strings.ToLower(strings.TrimSpace(strings.TrimPrefix(k, "classifiers.")))
-			s, e := parseString(v)
-			c.Classifiers[name] = s
-			return e
-		}
 		return fmt.Errorf("unknown config key %q", k)
 	}
+}
+
+func setClassifierValue(c *Config, k, v string) error {
+	if c.Classifiers == nil {
+		c.Classifiers = map[string]ClassifierConfig{}
+	}
+	rest := strings.TrimPrefix(k, "classifiers.")
+	parts := strings.SplitN(rest, ".", configKeyParts)
+	name := strings.ToLower(strings.TrimSpace(parts[0]))
+	entry := c.Classifiers[name]
+	if len(parts) == 1 {
+		s, e := parseString(v)
+		entry.Label = s
+		c.Classifiers[name] = entry
+		return e
+	}
+	field := strings.ToLower(strings.TrimSpace(parts[1]))
+	s, e := parseString(v)
+	switch field {
+	case "label":
+		entry.Label = s
+	case "pattern":
+		entry.Pattern = s
+	default:
+		return fmt.Errorf("unknown classifier field %q", field)
+	}
+	c.Classifiers[name] = entry
+	return e
 }
 
 func ApplyEnv(c *Config) {
@@ -358,16 +405,14 @@ func applyCustomPatternEnv(c *Config) {
 }
 
 func applyClassifierFallbacks(c *Config) {
-	if c.CustomPatterns == nil {
-		return
-	}
-	for name, mapping := range c.Classifiers {
-		if _, ok := c.CustomPatterns[name]; !ok {
-			continue
+	for name, classifier := range c.Classifiers {
+		if classifier.Label == "" {
+			classifier.Label = strings.ToUpper(name)
 		}
-		if mapping == "" {
-			c.Classifiers[name] = strings.ToUpper(name)
+		if pattern, ok := c.CustomPatterns[name]; ok && classifier.Pattern == "" {
+			classifier.Pattern = pattern
 		}
+		c.Classifiers[name] = classifier
 	}
 }
 
