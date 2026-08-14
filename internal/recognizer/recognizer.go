@@ -27,10 +27,19 @@ func New(cfg config.Config, gen *pseudonym.Generator) *Engine {
 		rules = append(rules, rule{"EMAIL", regexp.MustCompile(`(?i)\b[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}\b`)})
 	}
 	if cfg.Recognizers.UUID {
-		rules = append(rules, rule{"UUID", regexp.MustCompile(`(?i)\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b`)})
+		rules = append(
+			rules,
+			rule{
+				"UUID",
+				regexp.MustCompile(`(?i)\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b`),
+			},
+		)
 	}
 	if cfg.Recognizers.IPv4 {
-		rules = append(rules, rule{"IP", regexp.MustCompile(`\b(?:25[0-5]|2[0-4]\d|1?\d?\d)(?:\.(?:25[0-5]|2[0-4]\d|1?\d?\d)){3}\b`)})
+		rules = append(
+			rules,
+			rule{"IP", regexp.MustCompile(`\b(?:25[0-5]|2[0-4]\d|1?\d?\d)(?:\.(?:25[0-5]|2[0-4]\d|1?\d?\d)){3}\b`)},
+		)
 	}
 	if cfg.Recognizers.Phone {
 		rules = append(rules, rule{"PHONE", regexp.MustCompile(`(?m)(?:\+?\d[\d .()\-/]{6,}\d)`)})

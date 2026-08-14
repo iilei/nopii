@@ -1,4 +1,4 @@
 /dist/
 /bin/
 .nopiirc.toml
-*.sops.yaml
+nopii

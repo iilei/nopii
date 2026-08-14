@@ -1,0 +1,63 @@
+repos:
+  - repo: https://github.com/editorconfig-checker/editorconfig-checker.python
+    rev: 3.6.1
+    hooks:
+      - id: editorconfig-checker
+        alias: ec
+        exclude: '\.go$|^(internal/provider/.*\.md)|docs/.*$'  # Go formatting is handled by gofmt and editorconfig-checker yields false positives
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: '^(internal/provider/.*\.md)|docs/.*$'
+      - id: end-of-file-fixer
+        exclude: '^(internal/provider/.*\.md)|docs/.*$'
+      - id: check-yaml
+      - id: check-added-large-files
+      - id: mixed-line-ending
+        args: ['--fix=lf']
+
+  - repo: https://github.com/golangci/golangci-lint
+    rev: v2.12.1  # Use the latest version from https://github.com/golangci/golangci-lint/releases
+    hooks:
+      - id: golangci-lint-full
+      - id: golangci-lint-fmt
+
+  - repo: local
+    hooks:
+      - id: goimports
+        name: goimports
+        entry: bash -c 'goimports -w $(find . -type f -name "*.go" -not -path "./vendor/*")'
+        language: system
+        types: [go]
+        pass_filenames: false
+
+      - id: go-fmt
+        name: go fmt
+        entry: bash -c 'output=$(go fmt ./...); if [ -n "$output" ]; then echo "Files not formatted:"; echo "$output"; exit 1; fi'
+        language: system
+        types: [go]
+        pass_filenames: false
+
+      - id: go-vet
+        name: go vet
+        entry: bash -c 'go vet ./... || exit 0'
+        language: system
+        types: [go]
+        pass_filenames: false
+
+      - id: go-test
+        name: go test
+        entry: go test -short ./...
+        language: system
+        types: [go]
+        pass_filenames: false
+
+      # pre: go install github.com/princjef/gomarkdoc/cmd/gomarkdoc@latest
+      - id: go-doc-generate
+        name: generate Go documentation
+        entry: bash -c 'gomarkdoc ./pkg/... > docs/API.md'
+        language: system
+        pass_filenames: false
+        files: 'pkg/.*\.go$'

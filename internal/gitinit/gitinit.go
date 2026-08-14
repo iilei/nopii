@@ -2,6 +2,7 @@ package gitinit
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -26,7 +27,8 @@ func Current(global bool) (string, bool, error) {
 	cmd.Stdout = &out
 	err := cmd.Run()
 	if err != nil {
-		if ee, ok := err.(*exec.ExitError); ok && ee.ExitCode() == 1 {
+		ee := &exec.ExitError{}
+		if errors.As(err, &ee) {
 			return "", false, nil
 		}
 		return "", false, err
@@ -68,7 +70,8 @@ func Remove(global bool) error {
 	args = append(args, "--unset", Key)
 	cmd := exec.Command("git", args...)
 	if out, err := cmd.CombinedOutput(); err != nil {
-		if ee, ok := err.(*exec.ExitError); ok && ee.ExitCode() == 5 {
+		ee := &exec.ExitError{}
+		if errors.As(err, &ee) {
 			return nil
 		}
 		return fmt.Errorf("git config: %w: %s", err, strings.TrimSpace(string(out)))

@@ -2,6 +2,7 @@ package config
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 )
@@ -10,7 +11,7 @@ func ResolveKey(cfg Config, envOverride, fileOverride string, stdinKey []byte) (
 	if len(stdinKey) > 0 {
 		k := bytes.TrimSpace(stdinKey)
 		if len(k) == 0 {
-			return nil, "", fmt.Errorf("empty key from stdin")
+			return nil, "", errors.New("empty key from stdin")
 		}
 		return k, "stdin", nil
 	}
@@ -21,7 +22,7 @@ func ResolveKey(cfg Config, envOverride, fileOverride string, stdinKey []byte) (
 		}
 		b = bytes.TrimSpace(b)
 		if len(b) == 0 {
-			return nil, "", fmt.Errorf("empty key file")
+			return nil, "", errors.New("empty key file")
 		}
 		return b, "file:" + fileOverride, nil
 	}
@@ -38,7 +39,7 @@ func ResolveKey(cfg Config, envOverride, fileOverride string, stdinKey []byte) (
 		}
 		b = bytes.TrimSpace(b)
 		if len(b) == 0 {
-			return nil, "", fmt.Errorf("empty key file")
+			return nil, "", errors.New("empty key file")
 		}
 		return b, "file:" + cfg.Key.File, nil
 	}

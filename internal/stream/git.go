@@ -9,8 +9,10 @@ import (
 	"github.com/iilei/nopii/internal/recognizer"
 )
 
-const GitMagic = "NOPII_GIT_V1"
-const GitPrettyV1 = "format:" + GitMagic + "%x1f%H%x1f%P%x1f%an%x1f%ae%x1f%cn%x1f%ce%x1f%at%x1f%ct%x1f%B%x00"
+const (
+	GitMagic    = "NOPII_GIT_V1"
+	GitPrettyV1 = "format:" + GitMagic + "%x1f%H%x1f%P%x1f%an%x1f%ae%x1f%cn%x1f%ce%x1f%at%x1f%ct%x1f%B%x00"
+)
 
 type Processor struct {
 	gen *pseudonym.Generator
@@ -34,8 +36,8 @@ func (p *Processor) Process(r io.Reader, w io.Writer) error {
 }
 
 func (p *Processor) processGit(b []byte, w io.Writer) error {
-	records := bytes.Split(b, []byte{0})
-	for _, rec := range records {
+	records := bytes.SplitSeq(b, []byte{0})
+	for rec := range records {
 		rec = bytes.TrimLeft(rec, "\r\n")
 		if len(bytes.TrimSpace(rec)) == 0 {
 			continue
@@ -52,8 +54,18 @@ func (p *Processor) processGit(b []byte, w io.Writer) error {
 		if parents != "" {
 			fmt.Fprintf(w, "parents %s\n", parents)
 		}
-		fmt.Fprintf(w, "Author: %s <%s>\n", p.gen.Replacement("PERSON", authorName), p.gen.Replacement("EMAIL", authorEmail))
-		fmt.Fprintf(w, "Committer: %s <%s>\n", p.gen.Replacement("PERSON", committerName), p.gen.Replacement("EMAIL", committerEmail))
+		fmt.Fprintf(
+			w,
+			"Author: %s <%s>\n",
+			p.gen.Replacement("PERSON", authorName),
+			p.gen.Replacement("EMAIL", authorEmail),
+		)
+		fmt.Fprintf(
+			w,
+			"Committer: %s <%s>\n",
+			p.gen.Replacement("PERSON", committerName),
+			p.gen.Replacement("EMAIL", committerEmail),
+		)
 		fmt.Fprintf(w, "AuthorDate: %s\nCommitDate: %s\n\n", authorTime, commitTime)
 		fmt.Fprint(w, p.rec.ScrubString(body))
 		if len(body) == 0 || body[len(body)-1] != '\n' {

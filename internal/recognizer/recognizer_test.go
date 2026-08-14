@@ -1,10 +1,11 @@
 package recognizer
 
 import (
-	"github.com/iilei/nopii/internal/config"
-	"github.com/iilei/nopii/internal/pseudonym"
 	"strings"
 	"testing"
+
+	"github.com/iilei/nopii/internal/config"
+	"github.com/iilei/nopii/internal/pseudonym"
 )
 
 func TestScrubEmailAndIP(t *testing.T) {

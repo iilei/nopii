@@ -1,0 +1,168 @@
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - bodyclose            # Checks HTTP response body is closed
+    - copyloopvar          # Detects places where loop variables are copied
+    - decorder             # checks declaration order and count of types, constants, variables and functions
+    - dupl                 # tool for code clone detection
+    - dupword              # Checks for duplicate words
+    - errcheck             # checking for unchecked errors, these unchecked errors can be critical bugs in some cases
+    - errorlint            # Problems with error wrapping (Go 1.13+)
+    - funcorder            # Checks the order of functions, methods, and constructors
+    - gocognit             # Computes and checks the cognitive complexity of functions
+    - goconst              # Finds repeated strings that could be replaced by a constant
+    - gocritic             # provides diagnostics that check for bugs, performance and style issues
+    - gocyclo              # computes and checks the cyclomatic complexity of functions
+    - godoclint            # Checks Golang's documentation practice
+    - godot                # Checks if comments end in a period
+    - gomoddirectives      # Manages the use of 'replace', 'retract', and 'excludes' directives in go.mod
+    - goprintffuncname     # Checks that printf-like functions are named with f at the end
+    - gosec                # Inspects source code for security problems
+    - govet                # Reports suspicious constructs, such as Printf calls whose arguments do not align with the format string
+    - iface                # Checks the incorrect use of interfaces, helping developers avoid interface pollution
+    - ineffassign          # Detects when assignments to existing variables are not used
+    - intrange             # Finds places where for loops could make use of an integer range
+    - iotamixing           # Checks if iotas are being used in const blocks with other non-iota declarations
+    - loggercheck          # Checks key value pairs for common logger libraries (kitlog,klog,logr,zap)
+    - makezero             # Finds slice declarations with non-zero initial length
+    - mirror               # Reports wrong mirror patterns of bytes/strings usage
+    - mnd                  # Detects magic numbers
+    - modernize            # Suggests simplifications to Go code, using modern language and library features
+    - musttag              # Enforces field tags in (un)marshaled structs
+    - nakedret             # Finds naked returns in functions greater than a specified function length
+    - nestif               # Reports deeply nested if statements
+    - nilerr               # Finds the code that returns nil even if it checks that the error is not nil
+    - nilnesserr           # Reports that it checks for err != nil, but it returns a different nil value error
+    - nilnil               # Checks that there is no simultaneous return of nil error and an invalid value
+    - noctx                # Finds sending http request without context.Context
+    - nolintlint           # Reports ill-formed or insufficient nolint directives
+    - nonamedreturns       # Reports all named returns
+    - nosprintfhostport    # Checks for misuse of Sprintf to construct a host with port in a URL
+    - perfsprint           # Checks that fmt.Sprintf can be replaced with a faster alternative
+    - predeclared          # Finds code that shadows one of Go's predeclared identifiers
+    - promlinter           # Checks Prometheus metrics naming via promlint
+    - protogetter          # Reports direct reads from proto message fields when getters should be used
+    - reassign             # Checks that package variables are not reassigned
+    - recvcheck            # Checks for receiver type consistency
+    - revive               # Fast, configurable, extensible, flexible, and beautiful linter for Go
+    - rowserrcheck         # Checks whether Err of rows is checked successfully
+    - sloglint             # Ensure consistent code style when using log/slog
+    - spancheck            # Checks for mistakes with OpenTelemetry/Census spans
+    - sqlclosecheck        # Checks that sql.Rows and sql.Stmt are closed
+    - staticcheck          # Go vet on steroids, applying a ton of static analysis checks
+    - testableexamples     # Checks if examples are testable (have an expected output)
+    - testifylint          # Checks usage of github.com/stretchr/testify
+    - testpackage          # makes you use a separate _test package
+    - tparallel            # Detects inappropriate usage of t.Parallel() method in your Go test codes
+    - unconvert            # Removes unnecessary type conversions
+    - unparam              # Reports unused function parameters
+    - unused               # Checks for unused constants, variables, functions and types
+    - usestdlibvars        # Detects the possibility to use variables/constants from the Go standard library
+    - usetesting           # Reports uses of functions with replacement inside the testing package
+    - wastedassign         # Finds wasted assignment statements
+    - whitespace           # Detects leading and trailing whitespace
+
+  settings:
+    dupl:
+      threshold: 100
+    goconst:
+      min-len: 2
+      min-occurrences: 2
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - experimental
+        - opinionated
+        - performance
+        - style
+      # Settings passed to gocritic.
+      # The settings key is the name of a supported gocritic checker.
+      # The list of supported checkers can be found at https://go-critic.com/overview.
+      settings:
+        captLocal:
+          # Whether to restrict checker to params only.
+          # Default: true
+          paramsOnly: false
+        underef:
+          # Whether to skip (*x).method() calls where x is a pointer receiver.
+          # Default: true
+          skipRecvDeref: false
+    gocyclo:
+      min-complexity: 15
+    govet:
+      enable-all: false
+      enable:
+        - atomic
+        - bools
+        - buildtag
+        - nilfunc
+        - printf
+    misspell:
+      locale: US
+    nolintlint:
+      allow-unused: false
+      require-explanation: true
+      require-specific: true
+    decorder:
+      dec-order:
+        - const
+        - var
+        - type
+        - func
+      disable-dec-order-check: false
+      disable-init-func-first-check: false
+      disable-dec-num-check: false        # Allow multiple declarations of same type
+    gocognit:
+      min-complexity: 25                  # Minimal code complexity to report (default: 30)
+    revive:
+      rules:
+        - name: package-comments
+          severity: warning
+  exclusions:
+    rules:
+      - path: '_test\.go'
+        linters:
+          - errcheck
+          - unparam
+        text: "always nil"
+      - path: 'cmd/'
+        linters:
+          - errcheck
+      - path: 'main\.go'
+        linters:
+          - staticcheck
+        text: "SA1019.*plugin.Debug"
+      - linters:
+          - staticcheck
+        text: "SA1019.*Read is deprecated"
+
+formatters:
+  enable:
+    - gci
+    - gofmt
+    - gofumpt
+    - goimports
+    - golines
+
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(github.com/iilei/phonid)
+    gofumpt:
+      extra-rules: true
+    goimports:
+      local-prefixes:
+        - github.com/iilei/phonid
+    golines:
+      max-len: 120
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+run:
+  timeout: 5m
+  go: '1.25'

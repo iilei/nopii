@@ -17,11 +17,11 @@ func TestDiscoverNearestConfig(t *testing.T) {
 	}
 	defer os.RemoveAll(root)
 	child := filepath.Join(root, "a", "b")
-	if err := os.MkdirAll(child, 0755); err != nil {
+	if err := os.MkdirAll(child, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	want := filepath.Join(root, FileName)
-	if err := os.WriteFile(want, []byte("version=1\n"), 0600); err != nil {
+	if err := os.WriteFile(want, []byte("version=1\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	got, err := Discover(child)

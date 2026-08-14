@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -79,7 +80,7 @@ func filterFlags(errOut io.Writer) (*flag.FlagSet, *options) {
 
 func runInit(args []string, out io.Writer) error {
 	if len(args) == 0 || args[0] != "git" {
-		return fmt.Errorf("usage: nopii init git [--local] [--force] [--remove]")
+		return errors.New("usage: nopii init git [--local] [--force] [--remove]")
 	}
 	fs := flag.NewFlagSet("nopii init git", flag.ContinueOnError)
 	local := fs.Bool("local", false, "repository-local Git config")
@@ -89,7 +90,7 @@ func runInit(args []string, out io.Writer) error {
 		return err
 	}
 	if fs.NArg() != 0 {
-		return fmt.Errorf("unexpected arguments")
+		return errors.New("unexpected arguments")
 	}
 	global := !*local
 	if *remove {
@@ -115,10 +116,11 @@ func commonConfigFlags(name string, args []string, errOut io.Writer) (config.Con
 		return config.Config{}, "", err
 	}
 	if fs.NArg() != 0 {
-		return config.Config{}, "", fmt.Errorf("unexpected arguments")
+		return config.Config{}, "", errors.New("unexpected arguments")
 	}
 	return config.Load(*path)
 }
+
 func runDoctor(args []string, out, errOut io.Writer) error {
 	cfg, path, err := commonConfigFlags("nopii doctor", args, errOut)
 	if err != nil {
@@ -129,6 +131,7 @@ func runDoctor(args []string, out, errOut io.Writer) error {
 	}
 	return nil
 }
+
 func runConfig(args []string, out, errOut io.Writer) error {
 	cfg, path, err := commonConfigFlags("nopii config", args, errOut)
 	if err != nil {
@@ -137,9 +140,19 @@ func runConfig(args []string, out, errOut io.Writer) error {
 	if path == "" {
 		path = "<built-in>"
 	}
-	fmt.Fprintf(out, "config = %q\nversion = %d\nscope = %q\nkey_env = %q\nkey_file = %q\ntoken_length = %d\n", path, cfg.Version, cfg.Scope, cfg.Key.Env, cfg.Key.File, cfg.Output.TokenLength)
+	fmt.Fprintf(
+		out,
+		"config = %q\nversion = %d\nscope = %q\nkey_env = %q\nkey_file = %q\ntoken_length = %d\n",
+		path,
+		cfg.Version,
+		cfg.Scope,
+		cfg.Key.Env,
+		cfg.Key.File,
+		cfg.Output.TokenLength,
+	)
 	return nil
 }
+
 func printHelp(w io.Writer) {
 	fmt.Fprint(w, `nopii - deterministic PII pseudonymization for streams
 

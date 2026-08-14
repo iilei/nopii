@@ -2,11 +2,12 @@ package stream
 
 import (
 	"bytes"
+	"strings"
+	"testing"
+
 	"github.com/iilei/nopii/internal/config"
 	"github.com/iilei/nopii/internal/pseudonym"
 	"github.com/iilei/nopii/internal/recognizer"
-	"strings"
-	"testing"
 )
 
 func TestGitV1(t *testing.T) {
@@ -14,7 +15,21 @@ func TestGitV1(t *testing.T) {
 	g := pseudonym.New([]byte("secret"), "repo", 12)
 	r := recognizer.New(cfg, g)
 	p := New(g, r)
-	input := strings.Join([]string{GitMagic, "abc123", "parent", "Alice Example", "alice@example.com", "Bob Example", "bob@example.com", "100", "101", "Fix requested by carol@example.com"}, "\x1f") + "\x00"
+	input := strings.Join(
+		[]string{
+			GitMagic,
+			"abc123",
+			"parent",
+			"Alice Example",
+			"alice@example.com",
+			"Bob Example",
+			"bob@example.com",
+			"100",
+			"101",
+			"Fix requested by carol@example.com",
+		},
+		"\x1f",
+	) + "\x00"
 	var out bytes.Buffer
 	if err := p.Process(strings.NewReader(input), &out); err != nil {
 		t.Fatal(err)

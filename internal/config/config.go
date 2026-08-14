@@ -20,12 +20,20 @@ type Config struct {
 	Recognizers RecognizersConfig
 }
 
-type KeyConfig struct{ Env, File string }
-type OutputConfig struct{ TokenLength int }
-type RecognizersConfig struct{ Email, IPv4, UUID, Phone bool }
+type (
+	KeyConfig         struct{ Env, File string }
+	OutputConfig      struct{ TokenLength int }
+	RecognizersConfig struct{ Email, IPv4, UUID, Phone bool }
+)
 
 func Defaults() Config {
-	return Config{Version: 1, Scope: "default", Key: KeyConfig{Env: "NOPII_KEY"}, Output: OutputConfig{TokenLength: 12}, Recognizers: RecognizersConfig{Email: true, IPv4: true, UUID: true, Phone: true}}
+	return Config{
+		Version:     1,
+		Scope:       "default",
+		Key:         KeyConfig{Env: "NOPII_KEY"},
+		Output:      OutputConfig{TokenLength: 12},
+		Recognizers: RecognizersConfig{Email: true, IPv4: true, UUID: true, Phone: true},
+	}
 }
 
 func Discover(start string) (string, error) {
@@ -156,6 +164,7 @@ func stripComment(s string) string {
 	}
 	return s
 }
+
 func parseString(v string) (string, error) {
 	u, err := strconv.Unquote(v)
 	if err != nil {
@@ -163,6 +172,7 @@ func parseString(v string) (string, error) {
 	}
 	return u, nil
 }
+
 func parseBool(v string) (bool, error) {
 	b, err := strconv.ParseBool(v)
 	if err != nil {
@@ -170,6 +180,7 @@ func parseBool(v string) (bool, error) {
 	}
 	return b, nil
 }
+
 func parseInt(v string) (int, error) {
 	n, err := strconv.Atoi(v)
 	if err != nil {
