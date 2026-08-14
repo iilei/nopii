@@ -151,12 +151,12 @@ formatters:
       sections:
         - standard
         - default
-        - prefix(github.com/iilei/phonid)
+        - prefix(github.com/iilei/nopii)
     gofumpt:
       extra-rules: true
     goimports:
       local-prefixes:
-        - github.com/iilei/phonid
+        - github.com/iilei/nopii
     golines:
       max-len: 120
 issues:

@@ -46,6 +46,16 @@ The output renderer intentionally returns normal readable text rather than the
 wire format. Identity fields are pseudonymized before output. The body is passed
 through generic recognizers.
 
+When `git.date_clamp.enabled` is true, author and commit unix timestamps are
+floored to the nearest `granularity_seconds` boundary before output:
+
+```text
+clamped = floor(ts / granularity_seconds) * granularity_seconds
+```
+
+Clamping is deterministic and key-independent — the same timestamp and
+granularity always produce the same result.
+
 ## Future Presidio backend
 
 A future detector interface can support `builtin` and `presidio` without

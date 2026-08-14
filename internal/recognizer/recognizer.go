@@ -1,3 +1,4 @@
+// Package recognizer detects and scrubs PII from text using structured rules.
 package recognizer
 
 import (
@@ -8,21 +9,26 @@ import (
 	"github.com/iilei/nopii/internal/pseudonym"
 )
 
-type match struct {
-	start, end int
-	typ, value string
-}
-type Engine struct {
-	rules []rule
-	gen   *pseudonym.Generator
-}
-type rule struct {
-	typ string
-	re  *regexp.Regexp
-}
+type (
+	match struct {
+		start, end int
+		typ, value string
+	}
+	Engine struct {
+		rules []rule
+		gen   *pseudonym.Generator
+	}
+	rule struct {
+		typ string
+		re  *regexp.Regexp
+	}
+)
 
-func New(cfg config.Config, gen *pseudonym.Generator) *Engine {
+func New(cfg *config.Config, gen *pseudonym.Generator) *Engine {
 	var rules []rule
+	if cfg == nil {
+		return &Engine{gen: gen}
+	}
 	if cfg.Recognizers.Email {
 		rules = append(rules, rule{"EMAIL", regexp.MustCompile(`(?i)\b[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}\b`)})
 	}

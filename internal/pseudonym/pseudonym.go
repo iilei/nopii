@@ -1,3 +1,4 @@
+// Package pseudonym generates deterministic pseudonyms for sensitive values.
 package pseudonym
 
 import (

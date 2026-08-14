@@ -39,7 +39,7 @@ single, portable Go binary.
 
 ## Install from source
 
-Requires Go 1.23 or newer.
+Requires Go 1.25 or newer.
 
 ```sh
 go install github.com/iilei/nopii/cmd/nopii@latest
@@ -100,10 +100,49 @@ Then use:
 git log --pretty=nopii-v1 | nopii
 ```
 
+Example output:
+
+```sh
+export NOPII_KEY=foo
+git log --pretty=nopii-v1 | nopii
+```
+
+```text
+commit 94a1f3e00fd9a761936082b1177c3a0668d042f3
+parents 94caa08319f8f205765d1619cd66eb0bee57ebfe
+Author: PERSON_H2OE6EACY2TJ <EMAIL_XK5RTMXZD65F>
+Committer: PERSON_H2OE6EACY2TJ <EMAIL_XK5RTMXZD65F>
+AuthorDate: 1786674827
+CommitDate: 1786674827
+
+chore: clean-code basic setup
+
+commit 94caa08319f8f205765d1619cd66eb0bee57ebfe
+Author: PERSON_H2OE6EACY2TJ <EMAIL_XK5RTMXZD65F>
+Committer: PERSON_H2OE6EACY2TJ <EMAIL_XK5RTMXZD65F>
+AuthorDate: 1786674194
+CommitDate: 1786674194
+
+feat: base project layout
+```
+
 The Git format contains a magic marker, so `nopii` automatically recognizes
 this stream. Commit hashes, parent hashes and timestamps remain intact; author
 and committer identities are deterministically pseudonymized; commit-message
 free text is passed through the configured recognizers.
+
+Optionally, author and commit unix timestamps can be floored to a configurable
+granularity to reduce timing precision without losing ordering:
+
+```toml
+[git.date_clamp]
+enabled = true
+granularity_seconds = 86400  # daily buckets
+```
+
+The same input timestamp always produces the same clamped value for the same
+granularity. Enabled via `NOPII_GIT_DATE_CLAMP_ENABLED=true` and
+`NOPII_GIT_DATE_CLAMP_GRANULARITY=<seconds>` environment variables.
 
 Repository-local initialization is available as well:
 
@@ -155,6 +194,10 @@ email = true
 ipv4 = true
 uuid = true
 phone = true
+
+[git.date_clamp]
+enabled = false
+granularity_seconds = 86400  # floor timestamps to this boundary (e.g. 86400 = daily)
 ```
 
 `scope` deliberately remains separate from the secret key. Use the same scope

@@ -7,7 +7,15 @@ import (
 	"os"
 )
 
-func ResolveKey(cfg Config, envOverride, fileOverride string, stdinKey []byte) ([]byte, string, error) {
+// ResolveKey returns the pseudonymization key bytes and a human-readable
+// source description. Named returns are intentionally avoided here to
+// satisfy nonamedreturns; see below for the gocritic unnamedResult exception.
+//
+//nolint:gocritic // unnamedResult conflicts with nonamedreturns for this signature
+func ResolveKey(cfg *Config, envOverride, fileOverride string, stdinKey []byte) ([]byte, string, error) {
+	if cfg == nil {
+		return nil, "", errors.New("nil config")
+	}
 	if len(stdinKey) > 0 {
 		k := bytes.TrimSpace(stdinKey)
 		if len(k) == 0 {
@@ -16,6 +24,7 @@ func ResolveKey(cfg Config, envOverride, fileOverride string, stdinKey []byte) (
 		return k, "stdin", nil
 	}
 	if fileOverride != "" {
+		// #nosec G304 -- file path comes from explicit CLI input.
 		b, err := os.ReadFile(fileOverride)
 		if err != nil {
 			return nil, "", err
@@ -33,6 +42,7 @@ func ResolveKey(cfg Config, envOverride, fileOverride string, stdinKey []byte) (
 		return nil, "", fmt.Errorf("environment variable %s is not set", envOverride)
 	}
 	if cfg.Key.File != "" {
+		// #nosec G304 -- key file path comes from the loaded config.
 		b, err := os.ReadFile(cfg.Key.File)
 		if err != nil {
 			return nil, "", err

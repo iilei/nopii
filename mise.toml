@@ -6,6 +6,10 @@ go = "1.25"
 description = "Run Go tests"
 run = "go test ./..."
 
+[tasks.fmt]
+description = "Format Go sources and run golangci-lint"
+run = "gofmt -w . && golangci-lint run ./..."
+
 [tasks.bump]
 description = "Bump Go module dependencies and verify"
-run = "go get -u ./... && go mod tidy && mise run test"
+run = "go get -u ./... && go mod tidy && mise run fmt && mise run test"

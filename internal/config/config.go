@@ -1,3 +1,4 @@
+// Package config loads and validates nopii configuration from files and environment variables.
 package config
 
 import (
@@ -10,29 +11,62 @@ import (
 	"strings"
 )
 
-const FileName = ".nopiirc.toml"
+const (
+	FileName = ".nopiirc.toml"
 
-type Config struct {
-	Version     int
-	Scope       string
-	Key         KeyConfig
-	Output      OutputConfig
-	Recognizers RecognizersConfig
-}
+	defaultConfigVersion      = 1
+	defaultScope              = "default"
+	defaultKeyEnv             = "NOPII_KEY"
+	defaultTokenLength        = 12
+	defaultGranularitySeconds = 86400
+	minTokenLength            = 6
+	maxTokenLength            = 52
+	minClampGranularity       = 1
+	configKeyParts            = 2
+)
 
 type (
-	KeyConfig         struct{ Env, File string }
-	OutputConfig      struct{ TokenLength int }
-	RecognizersConfig struct{ Email, IPv4, UUID, Phone bool }
+	Config struct {
+		Version     int
+		Scope       string
+		Key         KeyConfig
+		Output      OutputConfig
+		Recognizers RecognizersConfig
+		Git         GitConfig
+	}
+	KeyConfig struct {
+		Env  string
+		File string
+	}
+	OutputConfig struct {
+		TokenLength int
+	}
+	RecognizersConfig struct {
+		Email bool
+		IPv4  bool
+		UUID  bool
+		Phone bool
+	}
+	GitConfig struct {
+		DateClamp DateClampConfig
+	}
+	DateClampConfig struct {
+		Enabled            bool
+		GranularitySeconds int
+	}
 )
 
 func Defaults() Config {
 	return Config{
-		Version:     1,
-		Scope:       "default",
-		Key:         KeyConfig{Env: "NOPII_KEY"},
-		Output:      OutputConfig{TokenLength: 12},
+		Version:     defaultConfigVersion,
+		Scope:       defaultScope,
+		Key:         KeyConfig{Env: defaultKeyEnv},
+		Output:      OutputConfig{TokenLength: defaultTokenLength},
 		Recognizers: RecognizersConfig{Email: true, IPv4: true, UUID: true, Phone: true},
+		Git: GitConfig{DateClamp: DateClampConfig{
+			Enabled:            false,
+			GranularitySeconds: defaultGranularitySeconds,
+		}},
 	}
 }
 
@@ -72,25 +106,9 @@ func Discover(start string) (string, error) {
 
 func Load(explicit string) (Config, string, error) {
 	cfg := Defaults()
-	var path string
-	var err error
-	if explicit != "" {
-		path, err = filepath.Abs(explicit)
-		if err != nil {
-			return cfg, "", err
-		}
-		if _, err = os.Stat(path); err != nil {
-			return cfg, "", fmt.Errorf("config: %w", err)
-		}
-	} else {
-		cwd, e := os.Getwd()
-		if e != nil {
-			return cfg, "", e
-		}
-		path, err = Discover(cwd)
-		if err != nil {
-			return cfg, "", err
-		}
+	path, err := resolveConfigPath(explicit)
+	if err != nil {
+		return cfg, "", err
 	}
 	if path != "" {
 		if err := parseFile(path, &cfg); err != nil {
@@ -98,24 +116,53 @@ func Load(explicit string) (Config, string, error) {
 		}
 	}
 	applyEnv(&cfg)
-	if cfg.Version != 1 {
-		return cfg, path, fmt.Errorf("unsupported config version %d", cfg.Version)
-	}
-	if cfg.Output.TokenLength < 6 || cfg.Output.TokenLength > 52 {
-		return cfg, path, errors.New("output.token_length must be between 6 and 52")
+	if err := validateConfig(&cfg); err != nil {
+		return cfg, path, err
 	}
 	if cfg.Key.Env == "" {
-		cfg.Key.Env = "NOPII_KEY"
+		cfg.Key.Env = defaultKeyEnv
 	}
 	return cfg, path, nil
 }
 
+func resolveConfigPath(explicit string) (string, error) {
+	if explicit != "" {
+		path, err := filepath.Abs(explicit)
+		if err != nil {
+			return "", err
+		}
+		if _, err = os.Stat(path); err != nil {
+			return "", fmt.Errorf("config: %w", err)
+		}
+		return path, nil
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	return Discover(cwd)
+}
+
+func validateConfig(cfg *Config) error {
+	if cfg.Version != defaultConfigVersion {
+		return fmt.Errorf("unsupported config version %d", cfg.Version)
+	}
+	if cfg.Output.TokenLength < minTokenLength || cfg.Output.TokenLength > maxTokenLength {
+		return errors.New("output.token_length must be between 6 and 52")
+	}
+	if cfg.Git.DateClamp.Enabled && cfg.Git.DateClamp.GranularitySeconds < minClampGranularity {
+		return errors.New("git.date_clamp.granularity_seconds must be at least 1")
+	}
+	return nil
+}
+
 func parseFile(path string, cfg *Config) error {
+	// #nosec G304 -- the config path is explicitly requested by the user or discovered from the working tree.
 	f, err := os.Open(path)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	section := ""
 	scanner := bufio.NewScanner(f)
 	lineNo := 0
@@ -129,8 +176,8 @@ func parseFile(path string, cfg *Config) error {
 			section = strings.TrimSpace(raw[1 : len(raw)-1])
 			continue
 		}
-		parts := strings.SplitN(raw, "=", 2)
-		if len(parts) != 2 {
+		parts := strings.SplitN(raw, "=", configKeyParts)
+		if len(parts) != configKeyParts {
 			return fmt.Errorf("%s:%d: expected key = value", path, lineNo)
 		}
 		key := strings.TrimSpace(parts[0])
@@ -227,6 +274,14 @@ func setValue(c *Config, k, v string) error {
 		b, e := parseBool(v)
 		c.Recognizers.Phone = b
 		return e
+	case "git.date_clamp.enabled":
+		b, e := parseBool(v)
+		c.Git.DateClamp.Enabled = b
+		return e
+	case "git.date_clamp.granularity_seconds":
+		n, e := parseInt(v)
+		c.Git.DateClamp.GranularitySeconds = n
+		return e
 	default:
 		return fmt.Errorf("unknown config key %q", k)
 	}
@@ -235,6 +290,16 @@ func setValue(c *Config, k, v string) error {
 func applyEnv(c *Config) {
 	if v := os.Getenv("NOPII_SCOPE"); v != "" {
 		c.Scope = v
+	}
+	if v := os.Getenv("NOPII_GIT_DATE_CLAMP_ENABLED"); v != "" {
+		if b, e := parseBool(v); e == nil {
+			c.Git.DateClamp.Enabled = b
+		}
+	}
+	if v := os.Getenv("NOPII_GIT_DATE_CLAMP_GRANULARITY"); v != "" {
+		if n, e := parseInt(v); e == nil {
+			c.Git.DateClamp.GranularitySeconds = n
+		}
 	}
 	if v := os.Getenv("NOPII_KEY_ENV"); v != "" {
 		c.Key.Env = v
