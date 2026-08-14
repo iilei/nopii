@@ -52,7 +52,7 @@ signs:
       - --armor
       - --detach-sign
       - --output
-      - "${artifact}.asc"
+      - "${artifact}.sig"
       - "${artifact}"
 
 snapshot:
