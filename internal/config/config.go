@@ -23,16 +23,20 @@ const (
 	maxTokenLength            = 52
 	minClampGranularity       = 1
 	configKeyParts            = 2
+	envKeyParts               = 2
+	customPatternPrefix       = "NOPII_CUSTOM_PATTERN__"
 )
 
 type (
 	Config struct {
-		Version     int
-		Scope       string
-		Key         KeyConfig
-		Output      OutputConfig
-		Recognizers RecognizersConfig
-		Git         GitConfig
+		Version        int
+		Scope          string
+		Key            KeyConfig
+		Output         OutputConfig
+		Recognizers    RecognizersConfig
+		Classifiers    map[string]string
+		CustomPatterns map[string]string
+		Git            GitConfig
 	}
 	KeyConfig struct {
 		Env  string
@@ -58,11 +62,13 @@ type (
 
 func Defaults() Config {
 	return Config{
-		Version:     defaultConfigVersion,
-		Scope:       defaultScope,
-		Key:         KeyConfig{Env: defaultKeyEnv},
-		Output:      OutputConfig{TokenLength: defaultTokenLength},
-		Recognizers: RecognizersConfig{Email: true, IPv4: true, UUID: true, Phone: true},
+		Version:        defaultConfigVersion,
+		Scope:          defaultScope,
+		Key:            KeyConfig{Env: defaultKeyEnv},
+		Output:         OutputConfig{TokenLength: defaultTokenLength},
+		Recognizers:    RecognizersConfig{Email: true, IPv4: true, UUID: true, Phone: true},
+		Classifiers:    map[string]string{},
+		CustomPatterns: map[string]string{},
 		Git: GitConfig{DateClamp: DateClampConfig{
 			Enabled:            false,
 			GranularitySeconds: defaultGranularitySeconds,
@@ -283,36 +289,84 @@ func setValue(c *Config, k, v string) error {
 		c.Git.DateClamp.GranularitySeconds = n
 		return e
 	default:
+		if strings.HasPrefix(k, "classifiers.") {
+			if c.Classifiers == nil {
+				c.Classifiers = map[string]string{}
+			}
+			name := strings.ToLower(strings.TrimSpace(strings.TrimPrefix(k, "classifiers.")))
+			s, e := parseString(v)
+			c.Classifiers[name] = s
+			return e
+		}
 		return fmt.Errorf("unknown config key %q", k)
 	}
 }
 
 func applyEnv(c *Config) {
-	if v := os.Getenv("NOPII_SCOPE"); v != "" {
-		c.Scope = v
+	applyStringEnv(&c.Scope, "NOPII_SCOPE")
+	applyBoolEnv(&c.Git.DateClamp.Enabled, "NOPII_GIT_DATE_CLAMP_ENABLED")
+	applyIntEnv(&c.Git.DateClamp.GranularitySeconds, "NOPII_GIT_DATE_CLAMP_GRANULARITY")
+	applyStringEnv(&c.Key.Env, "NOPII_KEY_ENV")
+	applyStringEnv(&c.Key.File, "NOPII_KEY_FILE")
+	applyIntEnv(&c.Output.TokenLength, "NOPII_TOKEN_LENGTH")
+	applyCustomPatternEnv(c)
+	applyClassifierFallbacks(c)
+}
+
+func applyStringEnv(dst *string, key string) {
+	if v := os.Getenv(key); v != "" {
+		*dst = v
 	}
-	if v := os.Getenv("NOPII_GIT_DATE_CLAMP_ENABLED"); v != "" {
-		if b, e := parseBool(v); e == nil {
-			c.Git.DateClamp.Enabled = b
-		}
-	}
-	if v := os.Getenv("NOPII_GIT_DATE_CLAMP_GRANULARITY"); v != "" {
-		if n, e := parseInt(v); e == nil {
-			c.Git.DateClamp.GranularitySeconds = n
-		}
-	}
-	if v := os.Getenv("NOPII_KEY_ENV"); v != "" {
-		c.Key.Env = v
-	}
-	if v := os.Getenv("NOPII_KEY_FILE"); v != "" {
-		c.Key.File = v
-	}
-	if v := os.Getenv("NOPII_TOKEN_LENGTH"); v != "" {
-		if n, e := strconv.Atoi(v); e == nil {
-			c.Output.TokenLength = n
+}
+
+func applyBoolEnv(dst *bool, key string) {
+	if v := os.Getenv(key); v != "" {
+		if b, err := parseBool(v); err == nil {
+			*dst = b
 		}
 	}
 }
+
+func applyIntEnv(dst *int, key string) {
+	if v := os.Getenv(key); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			*dst = n
+		}
+	}
+}
+
+func applyCustomPatternEnv(c *Config) {
+	for _, entry := range os.Environ() {
+		parts := strings.SplitN(entry, "=", envKeyParts)
+		if len(parts) != envKeyParts {
+			continue
+		}
+		key, value := parts[0], parts[1]
+		if !strings.HasPrefix(key, customPatternPrefix) {
+			continue
+		}
+		if c.CustomPatterns == nil {
+			c.CustomPatterns = map[string]string{}
+		}
+		name := strings.ToLower(strings.TrimPrefix(key, customPatternPrefix))
+		c.CustomPatterns[name] = value
+	}
+}
+
+func applyClassifierFallbacks(c *Config) {
+	if c.CustomPatterns == nil {
+		return
+	}
+	for name, mapping := range c.Classifiers {
+		if _, ok := c.CustomPatterns[name]; !ok {
+			continue
+		}
+		if mapping == "" {
+			c.Classifiers[name] = strings.ToUpper(name)
+		}
+	}
+}
+
 func samePath(a, b string) bool { return filepath.Clean(a) == filepath.Clean(b) }
 func isWithin(path, root string) bool {
 	rel, err := filepath.Rel(root, path)

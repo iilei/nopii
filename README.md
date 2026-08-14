@@ -198,10 +198,32 @@ phone = true
 [git.date_clamp]
 enabled = false
 granularity_seconds = 86400  # floor timestamps to this boundary (e.g. 86400 = daily)
+
+[classifiers]
+username = "USER"
 ```
 
 `scope` deliberately remains separate from the secret key. Use the same scope
 where referential identity should be preserved across runs, machines or CI.
+
+Custom recognizers can be added without changing the core algorithm. Each
+`classifiers.<name>` entry maps a semantic class to the output label that should
+appear in the pseudonym, and a matching `NOPII_CUSTOM_PATTERN__<NAME>`
+environment variable provides the regular expression to match.
+
+Example:
+
+```sh
+export NOPII_CUSTOM_PATTERN__USERNAME='(?m)(?:^|[[:space:]])@([A-Za-z0-9_-]+)'
+```
+
+```toml
+[classifiers]
+username = "USER"
+```
+
+This will replace matches like `@alice` with values like `USER_...`, while
+keeping the semantic type in the output label.
 
 CLI `--scope` overrides the config value.
 
@@ -276,7 +298,7 @@ backend = "builtin"
 # endpoint = "http://127.0.0.1:5001"
 ```
 
-A Presidio sidecar can then run locally with network disabled while the Go CLI
+A [Presidio](https://github.com/data-privacy-stack/presidio/) sidecar can then run locally with network disabled while the Go CLI
 remains portable. The security boundary must still assume that detectors can
 miss PII.
 

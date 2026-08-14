@@ -4,6 +4,7 @@ package recognizer
 import (
 	"regexp"
 	"sort"
+	"strings"
 
 	"github.com/iilei/nopii/internal/config"
 	"github.com/iilei/nopii/internal/pseudonym"
@@ -23,6 +24,10 @@ type (
 		re  *regexp.Regexp
 	}
 )
+
+func classifyLabel(label string) string {
+	return strings.ToUpper(strings.TrimSpace(label))
+}
 
 func New(cfg *config.Config, gen *pseudonym.Generator) *Engine {
 	var rules []rule
@@ -49,6 +54,22 @@ func New(cfg *config.Config, gen *pseudonym.Generator) *Engine {
 	}
 	if cfg.Recognizers.Phone {
 		rules = append(rules, rule{"PHONE", regexp.MustCompile(`(?m)(?:\+?\d[\d .()\-/]{6,}\d)`)})
+	}
+	if cfg.CustomPatterns != nil {
+		for name, pattern := range cfg.CustomPatterns {
+			label, ok := cfg.Classifiers[name]
+			if !ok || strings.TrimSpace(label) == "" {
+				label = strings.ToUpper(name)
+			}
+			if pattern == "" {
+				continue
+			}
+			compiled, err := regexp.Compile(pattern)
+			if err != nil {
+				continue
+			}
+			rules = append(rules, rule{classifyLabel(label), compiled})
+		}
 	}
 	return &Engine{rules: rules, gen: gen}
 }

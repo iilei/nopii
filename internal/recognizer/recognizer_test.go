@@ -21,3 +21,18 @@ func TestScrubEmailAndIP(t *testing.T) {
 		t.Fatalf("missing replacements: %q", out)
 	}
 }
+
+func TestScrubCustomClassifier(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.Classifiers = map[string]string{"username": "USER"}
+	t.Setenv("NOPII_CUSTOM_PATTERN__USERNAME", `(?m)(?:^|[[:space:]])@([A-Za-z0-9_-]+)`)
+	g := pseudonym.New([]byte("secret"), "scope", 12)
+	e := recognizerpkg.New(&cfg, g)
+	out := e.ScrubString("owner @alice-simpson was here")
+	if strings.Contains(out, "alice-simpson") {
+		t.Fatalf("custom username remained: %q", out)
+	}
+	if !strings.Contains(out, "USER_") {
+		t.Fatalf("missing custom replacement: %q", out)
+	}
+}

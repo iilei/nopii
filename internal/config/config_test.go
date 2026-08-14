@@ -31,3 +31,18 @@ func TestDiscoverNearestConfig(t *testing.T) {
 		t.Fatalf("got %q want %q", got, want)
 	}
 }
+
+func TestLoadConfigClassifiers(t *testing.T) {
+	path := filepath.Join(t.TempDir(), configpkg.FileName)
+	content := []byte("version = 1\n[classifiers]\nusername = \"USER\"\n")
+	if err := os.WriteFile(path, content, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, _, err := configpkg.Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, ok := cfg.Classifiers["username"]; !ok || got != "USER" {
+		t.Fatalf("expected classifier username mapping, got %#v", cfg.Classifiers)
+	}
+}

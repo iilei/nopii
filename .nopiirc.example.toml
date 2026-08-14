@@ -1,4 +1,7 @@
 version = 1
+
+# scope ties pseudonyms together: same scope + key => same token across runs.
+# Commit this file to share consistent pseudonymization policy across a team.
 scope = "default"
 
 [key]
@@ -10,6 +13,13 @@ token_length = 12
 
 [recognizers]
 email = true
-ipv4 = true
-uuid = true
+ipv4  = true
+uuid  = true
 phone = true
+
+[git.date_clamp]
+enabled             = true
+granularity_seconds = 86400  # floor timestamps to this boundary (e.g. 86400 = daily, 90d = 7776000)
+
+[classifiers]
+username = "USER"
