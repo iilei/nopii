@@ -121,7 +121,7 @@ func Load(explicit string) (Config, string, error) {
 			return cfg, path, err
 		}
 	}
-	applyEnv(&cfg)
+	ApplyEnv(&cfg)
 	if err := validateConfig(&cfg); err != nil {
 		return cfg, path, err
 	}
@@ -300,6 +300,10 @@ func setValue(c *Config, k, v string) error {
 		}
 		return fmt.Errorf("unknown config key %q", k)
 	}
+}
+
+func ApplyEnv(c *Config) {
+	applyEnv(c)
 }
 
 func applyEnv(c *Config) {

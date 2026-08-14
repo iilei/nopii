@@ -48,17 +48,3 @@ changelog:
     exclude:
       - '^docs:'
       - '^test:'
-
-brews:
-  - name: nopii
-    repository:
-      owner: iilei
-      name: homebrew-tap
-      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
-    homepage: https://github.com/iilei/nopii
-    description: Deterministic PII pseudonymization for streams
-    license: MIT
-    install: |
-      bin.install "nopii"
-    test: |
-      assert_match "{{ .Version }}", shell_output("#{bin}/nopii version")

@@ -30,6 +30,9 @@ func classifyLabel(label string) string {
 }
 
 func New(cfg *config.Config, gen *pseudonym.Generator) *Engine {
+	if cfg != nil {
+		config.ApplyEnv(cfg)
+	}
 	var rules []rule
 	if cfg == nil {
 		return &Engine{gen: gen}
