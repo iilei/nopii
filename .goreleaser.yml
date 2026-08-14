@@ -39,6 +39,22 @@ archives:
 checksum:
   name_template: checksums.txt
 
+signs:
+  - artifacts: checksum
+    cmd: gpg
+    args:
+      - --batch
+      - --yes
+      - --pinentry-mode
+      - loopback
+      - --passphrase
+      - "{{ .Env.GPG_PASSPHRASE }}"
+      - --armor
+      - --detach-sign
+      - --output
+      - "${artifact}.asc"
+      - "${artifact}"
+
 snapshot:
   version_template: "{{ incpatch .Version }}-next"
 
