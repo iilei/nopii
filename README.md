@@ -1,5 +1,7 @@
 # nopii
 
+[![codecov](https://codecov.io/gh/iilei/nopii/branch/master/graph/badge.svg)](https://codecov.io/gh/iilei/nopii)
+
 `nopii` is a small, pipe-first CLI for deterministic PII pseudonymization.
 It is designed for workflows where command output should be sent to an LLM or
 another external system without losing relationships between repeated
