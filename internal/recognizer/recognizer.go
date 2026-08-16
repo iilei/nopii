@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	gitMentionTrailerDefaultPattern = `(?im)^(?:(?:Co|Signed|Reviewed|Acked|Tested|Helped|Reported|Mentored)[ -]?authored[ -]?by|(?:Co|Signed|Reviewed|Acked|Tested|Helped|Reported|Mentored)[ -]?by|With[ -]?help[ -]?from|Collaborated[ -]?with)\s*:\s*("?[^"<\n]+"?\s*<[^>\n]+>)`
+	gitMentionTrailerDefaultPattern  = `(?im)^(?:(?:Co|Signed|Reviewed|Acked|Tested|Helped|Reported|Mentored)[ -]?authored[ -]?by|(?:Co|Signed|Reviewed|Acked|Tested|Helped|Reported|Mentored)[ -]?by|With[ -]?help[ -]?from|Collaborated[ -]?with)\s*:\s*("?[^"<\n]+"?\s*<[^>\n]+>)`
 	gitMentionUsernameDefaultPattern = `(?m)(@[A-Za-z0-9_-]+)`
 	gitTicketDefaultPattern          = `(?im)^(?:Fixes|Closes|Resolves|Refs|References|See|Ticket|Issue)\s*:\s*(#\d+|#?[A-Z]+[-_ ]?\d+|[A-Z][A-Z0-9]+-\d+)`
 )
@@ -115,17 +115,10 @@ func New(cfg *config.Config, gen *pseudonym.Generator) *Engine {
 func (e *Engine) ScrubString(s string) string {
 	var ms []match
 	for _, r := range e.rules {
-		for _, idx := range r.re.FindAllStringSubmatchIndex(s, -1) {
-			start, end := idx[0], idx[1]
-			for i := len(idx) - 2; i >= 2; i -= 2 {
-				if idx[i] >= 0 && idx[i+1] > idx[i] {
-					start, end = idx[i], idx[i+1]
-					break
-				}
-			}
+		for _, idx := range r.re.FindAllStringIndex(s, -1) {
 			ms = append(
 				ms,
-				match{start: start, end: end, typ: r.typ, value: s[start:end], priority: r.priority},
+				match{start: idx[0], end: idx[1], typ: r.typ, value: s[idx[0]:idx[1]], priority: r.priority},
 			)
 		}
 	}
@@ -155,7 +148,10 @@ func (e *Engine) ScrubString(s string) string {
 			filtered = append(filtered, m)
 			continue
 		}
-		if m.priority > prev.priority || (m.priority == prev.priority && (m.end-m.start) >= (prev.end-prev.start)) {
+		currLen := m.end - m.start
+		prevLen := prev.end - prev.start
+		if currLen > prevLen || (currLen == prevLen && m.priority > prev.priority) ||
+			(currLen == prevLen && m.priority == prev.priority && m.end > prev.end) {
 			*prev = m
 		}
 	}
