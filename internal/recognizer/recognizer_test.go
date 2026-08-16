@@ -52,6 +52,29 @@ func TestScrubGitMentionDefaults(t *testing.T) {
 	}
 }
 
+func TestScrubGitMentionMultipleRecipients(t *testing.T) {
+	cfg := config.Defaults()
+	g := pseudonym.New([]byte("secret"), "scope", 12)
+	e := recognizerpkg.New(&cfg, g)
+	out := e.ScrubString(
+		"Co-authored-by: Jane Doe <jane@example.com>, Jon Doe <jon@example.com>, O'Neil, Alice <alice@example.com>\n",
+	)
+	for _, plain := range []string{"Jane Doe", "jon@example.com", "O'Neil, Alice", "alice@example.com", "jane@example.com"} {
+		if strings.Contains(out, plain) {
+			t.Fatalf("git mention remained: %q", out)
+		}
+	}
+	if !strings.Contains(out, "Co-authored-by:") || !strings.Contains(out, "GIT_MENTION_") {
+		t.Fatalf("missing git mention replacements: %q", out)
+	}
+	if count := strings.Count(out, "GIT_MENTION_"); count != 3 {
+		t.Fatalf("expected 3 git mention replacements, got %d in %q", count, out)
+	}
+	if !strings.Contains(out, ", ") {
+		t.Fatalf("expected comma-separated recipients to be preserved: %q", out)
+	}
+}
+
 func TestScrubGitTicketDefaults(t *testing.T) {
 	cfg := config.Defaults()
 	g := pseudonym.New([]byte("secret"), "scope", 12)

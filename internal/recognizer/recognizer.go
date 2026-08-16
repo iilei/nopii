@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	gitMentionTrailerDefaultPattern  = `(?im)^(?:(?:Co|Signed|Reviewed|Acked|Tested|Helped|Reported|Mentored)[ -]?authored[ -]?by|(?:Co|Signed|Reviewed|Acked|Tested|Helped|Reported|Mentored)[ -]?by|With[ -]?help[ -]?from|Collaborated[ -]?with)\s*:\s*("?[^"<\n]+"?\s*<[^>\n]+>)`
-	gitMentionUsernameDefaultPattern = `(?m)(@[A-Za-z0-9_-]+)`
+	gitMentionTrailerDefaultPattern  = `(?im)(?:^(?:(?:Co|Signed|Reviewed|Acked|Tested|Helped|Reported|Mentored)[ -]?authored[ -]?by|(?:Co|Signed|Reviewed|Acked|Tested|Helped|Reported|Mentored)[ -]?by|With[ -]?help[ -]?from|Collaborated[ -]?with)\s*:\s*|,\s*)("?[^"<\n]+"?\s*<[^>\n]+>)`
+	gitMentionUsernameDefaultPattern = `(?m)(?:^|[^A-Za-z0-9_])(@[A-Za-z0-9_-]+)`
 	gitTicketDefaultPattern          = `(?im)^(?:Fixes|Closes|Resolves|Refs|References|See|Ticket|Issue)\s*:\s*(#\d+|#?[A-Z]+[-_ ]?\d+|[A-Z][A-Z0-9]+-\d+)`
 )
 
@@ -82,12 +82,12 @@ func New(cfg *config.Config, gen *pseudonym.Generator) *Engine {
 	if _, override := cfg.Classifiers["git_mention"]; !override {
 		rules = append(
 			rules,
-			rule{typ: "GIT_MENTION", re: regexp.MustCompile(gitMentionTrailerDefaultPattern), priority: 60},
-			rule{typ: "GIT_MENTION", re: regexp.MustCompile(gitMentionUsernameDefaultPattern), priority: 60},
+			rule{typ: "GIT_MENTION", re: regexp.MustCompile(gitMentionTrailerDefaultPattern), priority: 90},
+			rule{typ: "GIT_MENTION", re: regexp.MustCompile(gitMentionUsernameDefaultPattern), priority: 90},
 		)
 	}
 	if _, override := cfg.Classifiers["git_ticket"]; !override {
-		rules = append(rules, rule{typ: "GIT_TICKET", re: regexp.MustCompile(gitTicketDefaultPattern), priority: 60})
+		rules = append(rules, rule{typ: "GIT_TICKET", re: regexp.MustCompile(gitTicketDefaultPattern), priority: 90})
 	}
 	for name, classifier := range cfg.Classifiers {
 		pattern := classifier.Pattern
@@ -115,10 +115,14 @@ func New(cfg *config.Config, gen *pseudonym.Generator) *Engine {
 func (e *Engine) ScrubString(s string) string {
 	var ms []match
 	for _, r := range e.rules {
-		for _, idx := range r.re.FindAllStringIndex(s, -1) {
+		for _, idx := range r.re.FindAllStringSubmatchIndex(s, -1) {
+			start, end := idx[0], idx[1]
+			if len(idx) >= 4 && idx[2] >= 0 && idx[3] > idx[2] {
+				start, end = idx[2], idx[3]
+			}
 			ms = append(
 				ms,
-				match{start: idx[0], end: idx[1], typ: r.typ, value: s[idx[0]:idx[1]], priority: r.priority},
+				match{start: start, end: end, typ: r.typ, value: s[start:end], priority: r.priority},
 			)
 		}
 	}
@@ -148,10 +152,9 @@ func (e *Engine) ScrubString(s string) string {
 			filtered = append(filtered, m)
 			continue
 		}
-		currLen := m.end - m.start
-		prevLen := prev.end - prev.start
-		if currLen > prevLen || (currLen == prevLen && m.priority > prev.priority) ||
-			(currLen == prevLen && m.priority == prev.priority && m.end > prev.end) {
+		if m.priority > prev.priority ||
+			(m.priority == prev.priority && (m.end-m.start) >= (prev.end-prev.start)) ||
+			(m.priority == prev.priority && (m.end-m.start) == (prev.end-prev.start) && m.end > prev.end) {
 			*prev = m
 		}
 	}

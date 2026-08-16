@@ -34,20 +34,24 @@ sample for README-driven demos.
 When passed through `nopii`, the structured Git metadata and the trailer lines
 are scrubbed while the human-readable fields remain in place:
 
+```shell
+cat docs/git-v1-demo.txt | nopii
+```
+
 ```text
 commit 4d2c91a3a4b5e6c
 parents 8f3c1b9a0d2e4f5
-Author: "PERSON_..." <EMAIL_...>
-Committer: "PERSON_..." <EMAIL_...>
-AuthorDate: 1700000000
-CommitDate: 1700000001
+Author: "PERSON_DM54WMDNG5T3" <EMAIL_SPTYUN62UWWK>
+Committer: "PERSON_I6W7GJ2JTN6G" <EMAIL_4IYADU4PCMLZ>
+AuthorDate: 1699920000
+CommitDate: 1699920000
 
-fix: use IP_... and UUID_...
-Co-authored-by: Jane Doe <EMAIL_...>
-Reviewed-by: Bob Smith <EMAIL_...>
-Fixes: GIT_TICKET_...
-Refs: GIT_TICKET_...
-@alice and @bob-simpson were pinged on PHONE_...
+fix: use IP_SI5JQP5AV3SS and UUID_LTD5B5NTWYCW
+GIT_MENTION_PTTUXKW3Y76J
+GIT_MENTION_JS34722ZDRQP
+GIT_TICKET_HCQGC7V3RGO5
+GIT_TICKET_ZDWXBZSMENWJ
+GIT_MENTION_EN6JELLEUWWB and GIT_MENTION_GO6NYHTYY6AY were pinged on PHONE_YXKAU6JPWOQA
 ```
 
 The exact pseudonyms depend on the configured key and scope, but the shape of the
@@ -188,8 +192,8 @@ The quoted display-name form follows the standard mailbox pattern
 `"Name" <email@example.com>`, which is a strong signal for a person/email pair
 and remains easy to recognize without relying on ad hoc parsing.
 
-Optionally, author and commit unix timestamps can be floored to a configurable
-granularity to reduce timing precision without losing ordering:
+If you also want to reduce timestamp precision in Git output, you can clamp the
+author and commit unix timestamps to a fixed granularity without losing ordering:
 
 ```toml
 [git.date_clamp]
