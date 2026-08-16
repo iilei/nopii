@@ -53,5 +53,5 @@ func ResolveKey(cfg *Config, envOverride, fileOverride string, stdinKey []byte) 
 	if v, ok := os.LookupEnv(cfg.Key.Env); ok && v != "" {
 		return []byte(v), "env:" + cfg.Key.Env, nil
 	}
-	return nil, "", fmt.Errorf("no key found; set %s, configure key.file, or use --key-file/--key-stdin", cfg.Key.Env)
+	return nil, "", fmt.Errorf("no key found; set %s or configure key.file", cfg.Key.Env)
 }

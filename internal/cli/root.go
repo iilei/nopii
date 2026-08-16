@@ -12,7 +12,6 @@ import (
 	"github.com/iilei/nopii/internal/config"
 	"github.com/iilei/nopii/internal/configinit"
 	"github.com/iilei/nopii/internal/doctor"
-	"github.com/iilei/nopii/internal/gitinit"
 	"github.com/iilei/nopii/internal/pseudonym"
 	"github.com/iilei/nopii/internal/recognizer"
 	"github.com/iilei/nopii/internal/stream"
@@ -104,7 +103,7 @@ func hasNoPipedInput(r io.Reader) bool {
 
 func runInit(args []string, out io.Writer) error {
 	if len(args) == 0 {
-		return errors.New("usage: nopii init git [--local] [--force] [--remove]\n       nopii init config [--force]")
+		return errors.New("usage: nopii init git [--local]\n       nopii init config [--force]")
 	}
 	switch args[0] {
 	case "git":
@@ -119,9 +118,6 @@ func runInit(args []string, out io.Writer) error {
 func runInitGit(args []string, out io.Writer) error {
 	fs := flag.NewFlagSet("nopii init git", flag.ContinueOnError)
 	local := fs.Bool("local", false, "repository-local Git config")
-	force := fs.Bool("force", false, "replace differing value")
-	remove := fs.Bool("remove", false, "remove integration")
-	apply := fs.Bool("apply", false, "write the Git config now")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -129,19 +125,8 @@ func runInitGit(args []string, out io.Writer) error {
 		return errors.New("unexpected arguments")
 	}
 	global := !*local
-	if *remove {
-		if !*apply {
-			_, err := fmt.Fprintf(out, "To remove the nopii Git integration, run:\n  nopii init git --remove --apply\n")
-			return err
-		}
-		if err := gitinit.Remove(global); err != nil {
-			return err
-		}
-		_, err := fmt.Fprintln(out, "removed "+gitinit.Key)
-		return err
-	}
-	if !*apply {
-		_, err := fmt.Fprintf(out, `Git integration is opt-in and does not change Git behavior unless you apply it.
+	_ = global
+	_, err := fmt.Fprintf(out, `Git integration is explicit and non-destructive.
 
 The v1 format always stores the raw commit message body as the final field, so
 Git trailer recognizers operate on the commit message payload rather than the
@@ -155,17 +140,7 @@ Or globally:
 
 Then use:
   git log --pretty=nopii-v1 | nopii
-
-Apply this now with:
-  nopii init git --apply --local
 `, stream.GitPrettyV1, stream.GitPrettyV1)
-		return err
-	}
-	status, err := gitinit.Install(global, *force)
-	if err != nil {
-		return err
-	}
-	_, err = fmt.Fprintf(out, "%s %s\n", status, gitinit.Key)
 	return err
 }
 
@@ -244,7 +219,7 @@ func printHelp(w io.Writer) error {
 
 Usage:
   command | nopii [flags]
-  nopii init git [--local] [--force] [--remove]
+  nopii init git [--local]
   nopii init config [--force]
   nopii doctor [--config path]
   nopii config [--config path]

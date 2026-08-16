@@ -13,3 +13,7 @@ run = "gofmt -w . && golangci-lint run ./..."
 [tasks.bump]
 description = "Bump Go module dependencies and verify"
 run = "go get -u ./... && go mod tidy && mise run fmt && mise run test"
+
+[tasks.demo]
+description = "runs a demo in this repo"
+run = "export NOPII_KEY=xyz123; git log 72436~1..72436 --pretty=nopii-v1  | ./nopii"

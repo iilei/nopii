@@ -6,8 +6,8 @@ another external system without losing relationships between repeated
 identities.
 
 ```text
-git log --pretty=nopii-v1 | nopii | your-ai-cli
-kubectl logs deployment/api | nopii | your-ai-cli
+git log --pretty=nopii-v1 | nopii
+kubectl logs deployment/api | nopii
 cat support-ticket.txt | nopii
 ```
 
@@ -109,7 +109,7 @@ printf 'alice@example.com called 10.20.30.40\n' | nopii
 Example output:
 
 ```text
-EMAIL_2HTPOVZV4CD2 called IP_5TNLBK2ZVSWX
+EMAIL_OSXAQP5EEXQF called IP_G3RY3WTXMYHQ
 ```
 
 Pseudonyms are derived from:
@@ -125,9 +125,36 @@ The digest is Base32 encoded and truncated to `output.token_length` characters.
 `nopii` remains a stream filter. It does not wrap Git and does not silently
 change `git log` behavior.
 
-The Git integration is explicit and opt-in. `nopii init git` prints the exact
-configuration you can apply manually; if you want the CLI to write the config for
-you, use the explicit `--apply` flag.
+The Git integration is explicit and non-destructive. `nopii init git` only prints
+the exact configuration to apply manually; it never writes Git config for you.
+
+> [!IMPORTANT]
+> `nopii` is a stream filter for Git data in the `nopii-v1` format. Do not send
+> bare `git log` output to `nopii`; use the custom pretty format instead:
+>
+> ```sh
+> git log --pretty=nopii-v1 | nopii
+> ```
+>
+> For AI-assisted workflows, make the requirement explicit in the agent setup:
+>
+> ```text
+> Never run bare `git log` for nopii. Always use `git log --pretty=nopii-v1 | nopii`.
+> ```
+>
+> If you prefer a shorter command while working with an agent, a temporary alias is
+> a good pattern:
+>
+> ```sh
+> git config alias.nopii-log 'log --pretty=nopii-v1'
+> git nopii-log | nopii
+> ```
+>
+> To unset the alias, run the following:
+>
+> ```sh
+> git config --unset alias.nopii-log
+> ```
 
 ```sh
 nopii init git
@@ -158,11 +185,6 @@ git log --pretty=nopii-v1 | nopii
 ```
 
 Example output:
-
-```sh
-export NOPII_KEY=foo
-git log --pretty=nopii-v1 | nopii
-```
 
 ```text
 commit 94a1f3e00fd9a761936082b1177c3a0668d042f3
@@ -204,25 +226,6 @@ granularity_seconds = 86400  # daily buckets
 The same input timestamp always produces the same clamped value for the same
 granularity. Enabled via `NOPII_GIT_DATE_CLAMP_ENABLED=true` and
 `NOPII_GIT_DATE_CLAMP_GRANULARITY=<seconds>` environment variables.
-
-Repository-local installation is available as well:
-
-```sh
-nopii init git --apply --local
-```
-
-The CLI will not change your Git config unless you pass `--apply`. If the value
-already exists and differs, it is not overwritten unless requested explicitly:
-
-```sh
-nopii init git --apply --force
-```
-
-Remove it again with:
-
-```sh
-nopii init git --apply --remove
-```
 
 ## Configuration
 
@@ -322,10 +325,6 @@ nopii --scope NAME            override pseudonym scope
 nopii --key-env NAME          read secret from a named env variable
 nopii --key-file PATH         read secret from a file
 nopii init git                show guidance for the Git integration
-nopii init git --apply        write the Git config for the active scope
-nopii init git --apply --local install in current repository
-nopii init git --apply --force replace a conflicting integration
-nopii init git --apply --remove remove the integration
 nopii doctor                  show configuration/integration health
 nopii config                  show effective non-secret configuration
 nopii version                 print version
@@ -408,11 +407,8 @@ export NOPII_KEY='development-only-secret'
 git log --pretty=nopii-v1 | go run ./cmd/nopii
 ```
 
-Or let the CLI apply it directly:
-
-```sh
-nopii init git --apply --local
-```
+Use the exact config shown by the CLI or the Git commands above; do not rely on an
+automatic apply step.
 
 ## Security notes
 
