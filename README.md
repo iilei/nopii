@@ -14,6 +14,45 @@ cat support-ticket.txt | nopii
 The same input value produces the same pseudonym for the same key, scope and
 entity type. `nopii` never needs network access for its built-in recognizers.
 
+## Demo payload
+
+A Git v1 stream with the built-in Git trailer recognizers enabled looks
+like this when git is configured accordinly.
+
+```text
+NOPII_GIT_V14d2c91a3a4b5e6c8f3c1b9a0d2e4f5"Jane Doe" <jane@example.com>"Ops Team" <ops@example.org>17000000001700000001fix: use 10.20.30.40 and 5d2d0d6b-1d8a-4d50-8c03-0d4c9f22014e
+Co-authored-by: Jane Doe <jane@example.com>
+Reviewed-by: Bob Smith <bob@example.com>
+Fixes: GH-456
+Refs: #123
+@alice and @bob-simpson were pinged on +49 30 1234 5678
+```
+
+This is stored in [docs/git-v1-demo.txt](docs/git-v1-demo.txt) and is a good
+sample for README-driven demos.
+
+When passed through `nopii`, the structured Git metadata and the trailer lines
+are scrubbed while the human-readable fields remain in place:
+
+```text
+commit 4d2c91a3a4b5e6c
+parents 8f3c1b9a0d2e4f5
+Author: "PERSON_..." <EMAIL_...>
+Committer: "PERSON_..." <EMAIL_...>
+AuthorDate: 1700000000
+CommitDate: 1700000001
+
+fix: use IP_... and UUID_...
+Co-authored-by: Jane Doe <EMAIL_...>
+Reviewed-by: Bob Smith <EMAIL_...>
+Fixes: GIT_TICKET_...
+Refs: GIT_TICKET_...
+@alice and @bob-simpson were pinged on PHONE_...
+```
+
+The exact pseudonyms depend on the configured key and scope, but the shape of the
+output is stable and deterministic.
+
 > [!IMPORTANT]
 > `nopii` reduces exposure of detected PII. It does not prove that arbitrary
 > input is anonymous, and pseudonymized data may still be personal data under

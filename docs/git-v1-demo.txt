@@ -1,0 +1,7 @@
+NOPII_GIT_V14d2c91a3a4b5e6c8f3c1b9a0d2e4f5"Jane Doe" <jane@example.com>"Ops Team" <ops@example.org>17000000001700000001fix: use 10.20.30.40 and 5d2d0d6b-1d8a-4d50-8c03-0d4c9f22014e
+Co-authored-by: Jane Doe <jane@example.com>
+Reviewed-by: Bob Smith <bob@example.com>
+Fixes: GH-456
+Refs: #123
+@alice and @bob-simpson were pinged on +49 30 1234 5678
+
