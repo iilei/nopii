@@ -21,10 +21,6 @@ const (
 func Expected() string { return stream.GitPrettyV1 }
 
 // Current reports the configured value, whether it is set, and any error.
-// Unnamed returns are intentional to satisfy nonamedreturns; see the
-// gocritic exception below.
-//
-//nolint:gocritic // unnamedResult conflicts with nonamedreturns for this signature
 func Current(global bool) (string, bool, error) {
 	args := []string{gitConfig}
 	if global {

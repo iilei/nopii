@@ -8,10 +8,7 @@ import (
 )
 
 // ResolveKey returns the pseudonymization key bytes and a human-readable
-// source description. Named returns are intentionally avoided here to
-// satisfy nonamedreturns; see below for the gocritic unnamedResult exception.
-//
-//nolint:gocritic // unnamedResult conflicts with nonamedreturns for this signature
+// source description.
 func ResolveKey(cfg *Config, envOverride, fileOverride string, stdinKey []byte) ([]byte, string, error) {
 	if cfg == nil {
 		return nil, "", errors.New("nil config")

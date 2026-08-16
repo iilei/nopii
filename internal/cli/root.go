@@ -105,6 +105,7 @@ func runInitGit(args []string, out io.Writer) error {
 	local := fs.Bool("local", false, "repository-local Git config")
 	force := fs.Bool("force", false, "replace differing value")
 	remove := fs.Bool("remove", false, "remove integration")
+	apply := fs.Bool("apply", false, "write the Git config now")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -113,10 +114,35 @@ func runInitGit(args []string, out io.Writer) error {
 	}
 	global := !*local
 	if *remove {
+		if !*apply {
+			_, err := fmt.Fprintf(out, "To remove the nopii Git integration, run:\n  nopii init git --remove --apply\n")
+			return err
+		}
 		if err := gitinit.Remove(global); err != nil {
 			return err
 		}
 		_, err := fmt.Fprintln(out, "removed "+gitinit.Key)
+		return err
+	}
+	if !*apply {
+		_, err := fmt.Fprintf(out, `Git integration is opt-in and does not change Git behavior unless you apply it.
+
+The v1 format always stores the raw commit message body as the final field, so
+Git trailer recognizers operate on the commit message payload rather than the
+structured author/committer metadata.
+
+To enable the nopii Git log format for this repository:
+  git config --local pretty.nopii-v1 '%s'
+
+Or globally:
+  git config --global pretty.nopii-v1 '%s'
+
+Then use:
+  git log --pretty=nopii-v1 | nopii
+
+Apply this now with:
+  nopii init git --apply --local
+`, stream.GitPrettyV1, stream.GitPrettyV1)
 		return err
 	}
 	status, err := gitinit.Install(global, *force)

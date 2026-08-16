@@ -30,10 +30,8 @@ func TestGitV1(t *testing.T) {
 			streampkg.GitMagic,
 			gitCommitHash,
 			"parent",
-			aliceExample,
-			aliceEmail,
-			bobExample,
-			bobEmail,
+			"\"" + aliceExample + "\" <" + aliceEmail + ">",
+			"\"" + bobExample + "\" <" + bobEmail + ">",
 			"100",
 			"101",
 			"Fix requested by " + carolEmail,
@@ -52,5 +50,42 @@ func TestGitV1(t *testing.T) {
 	}
 	if !strings.Contains(s, "commit "+gitCommitHash) || !strings.Contains(s, "PERSON_") {
 		t.Fatalf("unexpected output: %q", s)
+	}
+	if !strings.Contains(s, "Author: \"PERSON_") || !strings.Contains(s, "Committer: \"PERSON_") {
+		t.Fatalf("expected quoted display-name format in output: %q", s)
+	}
+}
+
+func TestGitV1ScrubsTrailerBodyOnly(t *testing.T) {
+	cfg := config.Defaults()
+	g := pseudonym.New([]byte("secret"), "repo", 12)
+	r := recognizer.New(&cfg, g)
+	p := streampkg.New(g, r, config.DateClampConfig{})
+	body := "Fix summary\n\nCo-authored-by: Alice Example <alice@example.com>\nReviewed-by: Bob Example <bob@example.com>\n"
+	input := strings.Join(
+		[]string{
+			streampkg.GitMagic,
+			gitCommitHash,
+			"parent",
+			"\"" + aliceExample + "\" <" + aliceEmail + ">",
+			"\"" + bobExample + "\" <" + bobEmail + ">",
+			"100",
+			"101",
+			body,
+		},
+		"\x1f",
+	) + "\x00"
+	var out bytes.Buffer
+	if err := p.Process(strings.NewReader(input), &out); err != nil {
+		t.Fatal(err)
+	}
+	s := out.String()
+	for _, plain := range []string{"Alice Example", "alice@example.com", "Bob Example", "bob@example.com"} {
+		if strings.Contains(s, plain) {
+			t.Fatalf("plain trailer PII %q remained in %q", plain, s)
+		}
+	}
+	if !strings.Contains(s, "GIT_TRAILER_") {
+		t.Fatalf("expected trailer replacement in output: %q", s)
 	}
 }

@@ -82,16 +82,30 @@ The digest is Base32 encoded and truncated to `output.token_length` characters.
 `nopii` remains a stream filter. It does not wrap Git and does not silently
 change `git log` behavior.
 
-Initialize the explicit, versioned Git pretty format once:
+The Git integration is explicit and opt-in. `nopii init git` prints the exact
+configuration you can apply manually; if you want the CLI to write the config for
+you, use the explicit `--apply` flag.
 
 ```sh
 nopii init git
 ```
 
-This writes the following global Git config key:
+This shows how to enable the custom Git log format:
 
 ```text
 pretty.nopii-v1
+```
+
+For a repository-local setup:
+
+```sh
+git config --local pretty.nopii-v1 'format:NOPII_GIT_V1%x1f%H%x1f%P%x1f"%an" <%ae>%x1f"%cn" <%ce>%x1f%at%x1f%ct%x1f%B%x00'
+```
+
+Or globally:
+
+```sh
+git config --global pretty.nopii-v1 'format:NOPII_GIT_V1%x1f%H%x1f%P%x1f"%an" <%ae>%x1f"%cn" <%ce>%x1f%at%x1f%ct%x1f%B%x00'
 ```
 
 Then use:
@@ -110,16 +124,16 @@ git log --pretty=nopii-v1 | nopii
 ```text
 commit 94a1f3e00fd9a761936082b1177c3a0668d042f3
 parents 94caa08319f8f205765d1619cd66eb0bee57ebfe
-Author: PERSON_H2OE6EACY2TJ <EMAIL_XK5RTMXZD65F>
-Committer: PERSON_H2OE6EACY2TJ <EMAIL_XK5RTMXZD65F>
+Author: "PERSON_H2OE6EACY2TJ" <EMAIL_XK5RTMXZD65F>
+Committer: "PERSON_H2OE6EACY2TJ" <EMAIL_XK5RTMXZD65F>
 AuthorDate: 1786674827
 CommitDate: 1786674827
 
 chore: clean-code basic setup
 
 commit 94caa08319f8f205765d1619cd66eb0bee57ebfe
-Author: PERSON_H2OE6EACY2TJ <EMAIL_XK5RTMXZD65F>
-Committer: PERSON_H2OE6EACY2TJ <EMAIL_XK5RTMXZD65F>
+Author: "PERSON_H2OE6EACY2TJ" <EMAIL_XK5RTMXZD65F>
+Committer: "PERSON_H2OE6EACY2TJ" <EMAIL_XK5RTMXZD65F>
 AuthorDate: 1786674194
 CommitDate: 1786674194
 
@@ -130,6 +144,10 @@ The Git format contains a magic marker, so `nopii` automatically recognizes
 this stream. Commit hashes, parent hashes and timestamps remain intact; author
 and committer identities are deterministically pseudonymized; commit-message
 free text is passed through the configured recognizers.
+
+The quoted display-name form follows the standard mailbox pattern
+`"Name" <email@example.com>`, which is a strong signal for a person/email pair
+and remains easy to recognize without relying on ad hoc parsing.
 
 Optionally, author and commit unix timestamps can be floored to a configurable
 granularity to reduce timing precision without losing ordering:
@@ -144,23 +162,23 @@ The same input timestamp always produces the same clamped value for the same
 granularity. Enabled via `NOPII_GIT_DATE_CLAMP_ENABLED=true` and
 `NOPII_GIT_DATE_CLAMP_GRANULARITY=<seconds>` environment variables.
 
-Repository-local initialization is available as well:
+Repository-local installation is available as well:
 
 ```sh
-nopii init git --local
+nopii init git --apply --local
 ```
 
-Initialization is idempotent. A conflicting existing value is not overwritten
-unless requested explicitly:
+The CLI will not change your Git config unless you pass `--apply`. If the value
+already exists and differs, it is not overwritten unless requested explicitly:
 
 ```sh
-nopii init git --force
+nopii init git --apply --force
 ```
 
 Remove it again with:
 
 ```sh
-nopii init git --remove
+nopii init git --apply --remove
 ```
 
 ## Configuration
@@ -260,10 +278,11 @@ nopii                         stdin -> pseudonymized stdout
 nopii --scope NAME            override pseudonym scope
 nopii --key-env NAME          read secret from a named env variable
 nopii --key-file PATH         read secret from a file
-nopii init git                install global Git pretty.nopii-v1
-nopii init git --local        install in current repository
-nopii init git --force        replace a conflicting integration
-nopii init git --remove       remove the integration
+nopii init git                show guidance for the Git integration
+nopii init git --apply        write the Git config for the active scope
+nopii init git --apply --local install in current repository
+nopii init git --apply --force replace a conflicting integration
+nopii init git --apply --remove remove the integration
 nopii doctor                  show configuration/integration health
 nopii config                  show effective non-secret configuration
 nopii version                 print version
@@ -340,9 +359,16 @@ go build ./cmd/nopii
 Try Git integration in an expendable repository or globally:
 
 ```sh
-go run ./cmd/nopii init git
+nopii init git
+git config --local pretty.nopii-v1 'format:NOPII_GIT_V1%x1f%H%x1f%P%x1f"%an" <%ae>%x1f"%cn" <%ce>%x1f%at%x1f%ct%x1f%B%x00'
 export NOPII_KEY='development-only-secret'
 git log --pretty=nopii-v1 | go run ./cmd/nopii
+```
+
+Or let the CLI apply it directly:
+
+```sh
+nopii init git --apply --local
 ```
 
 ## Security notes

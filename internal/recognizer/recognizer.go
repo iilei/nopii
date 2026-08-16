@@ -25,6 +25,8 @@ type (
 	}
 )
 
+const gitTrailerDefaultPattern = `(?im)^(?:(?:Co|Signed|Reviewed|Acked|Tested|Helped|Reported|Mentored)[ -]?authored[ -]?by|(?:Co|Signed|Reviewed|Acked|Tested|Helped|Reported|Mentored)[ -]?by|With[ -]?help[ -]?from|Collaborated[ -]?with)\s*:?\s*"?([^"<\n]+)"?\s*<[^>\n]+>\s*$`
+
 func classifyLabel(label string) string {
 	return strings.ToUpper(strings.TrimSpace(label))
 }
@@ -57,6 +59,9 @@ func New(cfg *config.Config, gen *pseudonym.Generator) *Engine {
 	}
 	if cfg.Recognizers.Phone {
 		rules = append(rules, rule{"PHONE", regexp.MustCompile(`(?m)(?:\+?\d[\d .()\-/]{6,}\d)`)})
+	}
+	if _, override := cfg.Classifiers["git_trailer"]; !override {
+		rules = append(rules, rule{"GIT_TRAILER", regexp.MustCompile(gitTrailerDefaultPattern)})
 	}
 	for name, classifier := range cfg.Classifiers {
 		pattern := classifier.Pattern

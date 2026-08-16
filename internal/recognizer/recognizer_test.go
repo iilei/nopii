@@ -37,3 +37,16 @@ func TestScrubCustomClassifier(t *testing.T) {
 		t.Fatalf("missing custom replacement: %q", out)
 	}
 }
+
+func TestScrubGitTrailerDefaults(t *testing.T) {
+	cfg := config.Defaults()
+	g := pseudonym.New([]byte("secret"), "scope", 12)
+	e := recognizerpkg.New(&cfg, g)
+	out := e.ScrubString("Co-authored-by: Alice Example <alice@example.com>\nReviewed-by: Bob Example <bob@example.com>\n")
+	if strings.Contains(out, "Alice Example") || strings.Contains(out, "alice@example.com") || strings.Contains(out, "Bob Example") {
+		t.Fatalf("git trailer names or emails remained: %q", out)
+	}
+	if !strings.Contains(out, "GIT_TRAILER_") {
+		t.Fatalf("missing git trailer replacement: %q", out)
+	}
+}

@@ -2,9 +2,11 @@ package stream
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 
 	"github.com/iilei/nopii/internal/config"
 	"github.com/iilei/nopii/internal/pseudonym"
@@ -12,10 +14,13 @@ import (
 )
 
 const (
-	GitMagic    = "NOPII_GIT_V1"
-	GitPrettyV1 = "format:" + GitMagic + "%x1f%H%x1f%P%x1f%an%x1f%ae%x1f%cn%x1f%ce%x1f%at%x1f%ct%x1f%B%x00"
+	GitMagic = "NOPII_GIT_V1"
+	// GitPrettyV1 keeps the commit message body as the final field in the v1 record.
+	// That invariant lets the parser treat the last field as the body without extra
+	// payload markers, while still keeping all metadata fields structured and explicit.
+	GitPrettyV1 = "format:" + GitMagic + "%x1f%H%x1f%P%x1f\"%an\" <%ae>%x1f\"%cn\" <%ce>%x1f%at%x1f%ct%x1f%B%x00"
 
-	gitRecordFieldCount = 10
+	gitRecordFieldCount = 8
 )
 
 type (
@@ -88,17 +93,43 @@ func parseGitRecord(rec []byte) (gitRecord, error) {
 			GitMagic, gitRecordFieldCount, len(fields),
 		)
 	}
+	authorName, authorEmail, err := parseMailIdentity(string(fields[3]))
+	if err != nil {
+		return gitRecord{}, fmt.Errorf("invalid author identity %q: %w", fields[3], err)
+	}
+	committerName, committerEmail, err := parseMailIdentity(string(fields[4]))
+	if err != nil {
+		return gitRecord{}, fmt.Errorf("invalid committer identity %q: %w", fields[4], err)
+	}
 	return gitRecord{
 		hash:           string(fields[1]),
 		parents:        string(fields[2]),
-		authorName:     string(fields[3]),
-		authorEmail:    string(fields[4]),
-		committerName:  string(fields[5]),
-		committerEmail: string(fields[6]),
-		authorTime:     string(fields[7]),
-		commitTime:     string(fields[8]),
-		body:           string(fields[9]),
+		authorName:     authorName,
+		authorEmail:    authorEmail,
+		committerName:  committerName,
+		committerEmail: committerEmail,
+		authorTime:     string(fields[5]),
+		commitTime:     string(fields[6]),
+		body:           string(fields[7]),
 	}, nil
+}
+
+func parseMailIdentity(v string) (string, string, error) {
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return "", "", errors.New("empty identity")
+	}
+	start := strings.Index(v, " <")
+	if start <= 0 || !strings.HasSuffix(v, ">") {
+		return "", "", errors.New("expected mailbox form \"Name\" <email@example.com>")
+	}
+	name := strings.TrimSpace(v[:start])
+	email := strings.TrimSpace(v[start+2 : len(v)-1])
+	name = strings.Trim(name, "\"")
+	if name == "" || email == "" {
+		return "", "", errors.New("expected mailbox form \"Name\" <email@example.com>")
+	}
+	return name, email, nil
 }
 
 func (p *Processor) writeRecord(rec []byte, w io.Writer) error {
@@ -118,7 +149,7 @@ func (p *Processor) writeRecord(rec []byte, w io.Writer) error {
 	}
 	if _, err := fmt.Fprintf(
 		w,
-		"Author: %s <%s>\n",
+		"Author: \"%s\" <%s>\n",
 		p.gen.Replacement("PERSON", r.authorName),
 		p.gen.Replacement("EMAIL", r.authorEmail),
 	); err != nil {
@@ -126,7 +157,7 @@ func (p *Processor) writeRecord(rec []byte, w io.Writer) error {
 	}
 	if _, err := fmt.Fprintf(
 		w,
-		"Committer: %s <%s>\n",
+		"Committer: \"%s\" <%s>\n",
 		p.gen.Replacement("PERSON", r.committerName),
 		p.gen.Replacement("EMAIL", r.committerEmail),
 	); err != nil {
@@ -135,6 +166,9 @@ func (p *Processor) writeRecord(rec []byte, w io.Writer) error {
 	if _, err := fmt.Fprintf(w, "AuthorDate: %s\nCommitDate: %s\n\n", r.authorTime, r.commitTime); err != nil {
 		return err
 	}
+	// The v1 record always stores the raw commit body as the final field. That makes
+	// the body-scope explicit without extra marker bytes, and keeps trailer matching
+	// focused on the Git message payload instead of the metadata fields.
 	if _, err := fmt.Fprint(w, p.rec.ScrubString(r.body)); err != nil {
 		return err
 	}
