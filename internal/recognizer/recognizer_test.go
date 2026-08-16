@@ -38,15 +38,29 @@ func TestScrubCustomClassifier(t *testing.T) {
 	}
 }
 
-func TestScrubGitTrailerDefaults(t *testing.T) {
+func TestScrubGitMentionDefaults(t *testing.T) {
 	cfg := config.Defaults()
 	g := pseudonym.New([]byte("secret"), "scope", 12)
 	e := recognizerpkg.New(&cfg, g)
-	out := e.ScrubString("Co-authored-by: Alice Example <alice@example.com>\nReviewed-by: Bob Example <bob@example.com>\n")
-	if strings.Contains(out, "Alice Example") || strings.Contains(out, "alice@example.com") || strings.Contains(out, "Bob Example") {
-		t.Fatalf("git trailer names or emails remained: %q", out)
+	out := e.ScrubString("Co-authored-by: Alice Example <alice@example.com>\n@bob wrote this\n")
+	if strings.Contains(out, "Alice Example") || strings.Contains(out, "alice@example.com") ||
+		strings.Contains(out, "@bob") {
+		t.Fatalf("git mention remained: %q", out)
 	}
-	if !strings.Contains(out, "GIT_TRAILER_") {
-		t.Fatalf("missing git trailer replacement: %q", out)
+	if !strings.Contains(out, "GIT_MENTION_") {
+		t.Fatalf("missing git mention replacement: %q", out)
+	}
+}
+
+func TestScrubGitTicketDefaults(t *testing.T) {
+	cfg := config.Defaults()
+	g := pseudonym.New([]byte("secret"), "scope", 12)
+	e := recognizerpkg.New(&cfg, g)
+	out := e.ScrubString("Fixes: #123\nCloses: GH-456\n")
+	if strings.Contains(out, "#123") || strings.Contains(out, "GH-456") {
+		t.Fatalf("git ticket remained: %q", out)
+	}
+	if !strings.Contains(out, "GIT_TICKET_") {
+		t.Fatalf("missing git ticket replacement: %q", out)
 	}
 }

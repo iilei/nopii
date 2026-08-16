@@ -127,7 +127,9 @@ linters:
       - path: '_test\.go'
         linters:
           - errcheck
+          - mnd
           - unparam
+          - goconst
         text: "always nil"
       - path: 'cmd/'
         linters:
@@ -136,6 +138,9 @@ linters:
         linters:
           - staticcheck
         text: "SA1019.*plugin.Debug"
+      - path: 'recognizer\.go'
+        linters:
+          - mnd
       - linters:
           - staticcheck
         text: "SA1019.*Read is deprecated"

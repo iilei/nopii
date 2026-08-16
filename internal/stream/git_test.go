@@ -18,6 +18,7 @@ const (
 	bobEmail      = "bob@example.com"
 	carolEmail    = "carol@example.com"
 	gitCommitHash = "abc123"
+	gitParent     = "parent"
 )
 
 func TestGitV1(t *testing.T) {
@@ -29,7 +30,7 @@ func TestGitV1(t *testing.T) {
 		[]string{
 			streampkg.GitMagic,
 			gitCommitHash,
-			"parent",
+			gitParent,
 			"\"" + aliceExample + "\" <" + aliceEmail + ">",
 			"\"" + bobExample + "\" <" + bobEmail + ">",
 			"100",
@@ -66,7 +67,7 @@ func TestGitV1ScrubsTrailerBodyOnly(t *testing.T) {
 		[]string{
 			streampkg.GitMagic,
 			gitCommitHash,
-			"parent",
+			gitParent,
 			"\"" + aliceExample + "\" <" + aliceEmail + ">",
 			"\"" + bobExample + "\" <" + bobEmail + ">",
 			"100",
@@ -85,7 +86,7 @@ func TestGitV1ScrubsTrailerBodyOnly(t *testing.T) {
 			t.Fatalf("plain trailer PII %q remained in %q", plain, s)
 		}
 	}
-	if !strings.Contains(s, "GIT_TRAILER_") {
-		t.Fatalf("expected trailer replacement in output: %q", s)
+	if !strings.Contains(s, "GIT_MENTION_") {
+		t.Fatalf("expected git mention replacement in output: %q", s)
 	}
 }
