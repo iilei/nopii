@@ -61,7 +61,7 @@ brews:
       owner: iilei
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
-    folder: Formula
+    directory: Formula
     homepage: "https://github.com/iilei/nopii"
     description: "Pipe-first CLI for deterministic PII pseudonymization"
     license: "MIT"
