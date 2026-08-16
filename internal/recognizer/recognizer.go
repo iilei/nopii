@@ -11,8 +11,9 @@ import (
 )
 
 const (
-	gitMentionDefaultPattern = `(?i)^(?:(?:Co|Signed|Reviewed|Acked|Tested|Helped|Reported|Mentored)[ -]?authored[ -]?by|(?:Co|Signed|Reviewed|Acked|Tested|Helped|Reported|Mentored)[ -]?by|With[ -]?help[ -]?from|Collaborated[ -]?with)\s*:?\s*"?([^"<\n]+)"?\s*<[^>\n]+>\s*$|(?m)(?:^|[[:space:]])@([A-Za-z0-9_-]+)`
-	gitTicketDefaultPattern  = `(?im)^(?:Fixes|Closes|Resolves|Refs|References|See|Ticket|Issue)\s*:\s*(?:#\d+|#?[A-Z]+[-_ ]?\d+|[A-Z][A-Z0-9]+-\d+)\s*$`
+	gitMentionTrailerDefaultPattern = `(?im)^(?:(?:Co|Signed|Reviewed|Acked|Tested|Helped|Reported|Mentored)[ -]?authored[ -]?by|(?:Co|Signed|Reviewed|Acked|Tested|Helped|Reported|Mentored)[ -]?by|With[ -]?help[ -]?from|Collaborated[ -]?with)\s*:\s*("?[^"<\n]+"?\s*<[^>\n]+>)`
+	gitMentionUsernameDefaultPattern = `(?m)(@[A-Za-z0-9_-]+)`
+	gitTicketDefaultPattern          = `(?im)^(?:Fixes|Closes|Resolves|Refs|References|See|Ticket|Issue)\s*:\s*(#\d+|#?[A-Z]+[-_ ]?\d+|[A-Z][A-Z0-9]+-\d+)`
 )
 
 type (
@@ -79,7 +80,11 @@ func New(cfg *config.Config, gen *pseudonym.Generator) *Engine {
 		)
 	}
 	if _, override := cfg.Classifiers["git_mention"]; !override {
-		rules = append(rules, rule{typ: "GIT_MENTION", re: regexp.MustCompile(gitMentionDefaultPattern), priority: 60})
+		rules = append(
+			rules,
+			rule{typ: "GIT_MENTION", re: regexp.MustCompile(gitMentionTrailerDefaultPattern), priority: 60},
+			rule{typ: "GIT_MENTION", re: regexp.MustCompile(gitMentionUsernameDefaultPattern), priority: 60},
+		)
 	}
 	if _, override := cfg.Classifiers["git_ticket"]; !override {
 		rules = append(rules, rule{typ: "GIT_TICKET", re: regexp.MustCompile(gitTicketDefaultPattern), priority: 60})
@@ -110,10 +115,17 @@ func New(cfg *config.Config, gen *pseudonym.Generator) *Engine {
 func (e *Engine) ScrubString(s string) string {
 	var ms []match
 	for _, r := range e.rules {
-		for _, idx := range r.re.FindAllStringIndex(s, -1) {
+		for _, idx := range r.re.FindAllStringSubmatchIndex(s, -1) {
+			start, end := idx[0], idx[1]
+			for i := len(idx) - 2; i >= 2; i -= 2 {
+				if idx[i] >= 0 && idx[i+1] > idx[i] {
+					start, end = idx[i], idx[i+1]
+					break
+				}
+			}
 			ms = append(
 				ms,
-				match{start: idx[0], end: idx[1], typ: r.typ, value: s[idx[0]:idx[1]], priority: r.priority},
+				match{start: start, end: end, typ: r.typ, value: s[start:end], priority: r.priority},
 			)
 		}
 	}
@@ -132,12 +144,19 @@ func (e *Engine) ScrubString(s string) string {
 		}
 		return ms[i].start < ms[j].start
 	})
-	filtered := ms[:0]
-	last := -1
+	filtered := make([]match, 0, len(ms))
 	for _, m := range ms {
-		if m.start >= last {
+		if len(filtered) == 0 {
 			filtered = append(filtered, m)
-			last = m.end
+			continue
+		}
+		prev := &filtered[len(filtered)-1]
+		if m.start >= prev.end {
+			filtered = append(filtered, m)
+			continue
+		}
+		if m.priority > prev.priority || (m.priority == prev.priority && (m.end-m.start) >= (prev.end-prev.start)) {
+			*prev = m
 		}
 	}
 	out := make([]byte, 0, len(s))
