@@ -2,3 +2,4 @@
 /bin/
 .nopiirc.toml
 nopii
+.temp/*

@@ -55,6 +55,19 @@ signs:
       - "${artifact}.sig"
       - "${artifact}"
 
+brews:
+  - name: nopii
+    repository:
+      owner: iilei
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    folder: Formula
+    homepage: "https://github.com/iilei/nopii"
+    description: "Pipe-first CLI for deterministic PII pseudonymization"
+    license: "MIT"
+    test: |
+      system "#{bin}/nopii --help"
+
 snapshot:
   version_template: "{{ incpatch .Version }}-next"
 
