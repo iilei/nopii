@@ -37,6 +37,9 @@ func Execute() {
 }
 
 func run(args []string, in io.Reader, out, errOut io.Writer) error {
+	if len(args) == 0 && hasNoPipedInput(in) {
+		return printHelp(out)
+	}
 	if len(args) > 0 {
 		switch args[0] {
 		case cmdInit:
@@ -84,6 +87,19 @@ func filterFlags(errOut io.Writer) (*flag.FlagSet, *options) {
 	fs.StringVar(&o.keyEnv, "key-env", "", "read key from environment variable")
 	fs.StringVar(&o.keyFile, "key-file", "", "read key from file")
 	return fs, o
+}
+
+func hasNoPipedInput(r io.Reader) bool {
+	if r == nil {
+		return true
+	}
+	if f, ok := r.(*os.File); ok {
+		stat, err := f.Stat()
+		if err == nil {
+			return (stat.Mode() & os.ModeCharDevice) != 0
+		}
+	}
+	return false
 }
 
 func runInit(args []string, out io.Writer) error {
