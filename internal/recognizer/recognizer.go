@@ -11,9 +11,9 @@ import (
 )
 
 const (
-	gitMentionTrailerDefaultPattern  = `(?im)(?:^(?:(?:Co|Signed|Reviewed|Acked|Tested|Helped|Reported|Mentored)[ -]?authored[ -]?by|(?:Co|Signed|Reviewed|Acked|Tested|Helped|Reported|Mentored)[ -]?by|With[ -]?help[ -]?from|Collaborated[ -]?with)\s*:\s*|,\s*)("?[^"<\n]+"?\s*<[^>\n]+>)`
+	gitMentionTrailerDefaultPattern  = `(?im)(?:^(?:(?:Co|Signed|Reviewed|Acked|Tested|Helped|Reported|Mentored)[ -]?authored[ -]?by|(?:Co|Signed|Reviewed|Acked|Tested|Helped|Reported|Mentored)[ -]?by|With[ -]?help[ -]?from|Collaborated[ -]?with)\s*:\s*|(?:\s*(?:,|/|\+|&|;|\band\b)\s*))("?[^"<\n]+"?\s*<[^>\n]+>)`
 	gitMentionUsernameDefaultPattern = `(?m)(?:^|[^A-Za-z0-9_])(@[A-Za-z0-9_-]+)`
-	gitTicketDefaultPattern          = `(?im)^(?:Fixes|Closes|Resolves|Refs|References|See|Ticket|Issue)\s*:\s*(#\d+|#?[A-Z]+[-_ ]?\d+|[A-Z][A-Z0-9]+-\d+)`
+	gitTicketDefaultPattern          = `(?im)^(?:Fixes|Closes|Resolves|Refs|References|See|Ticket|Issue)\s*:\s*(?:#\d+|#?[A-Z]+[-_ ]?\d+|[A-Z][A-Z0-9]+-\d+|(?:\d{2,5}[_-])?\d+)(?:\s*(?:,|/|\+|&|;|\band\b|\s+)\s*(?:#\d+|#?[A-Z]+[-_ ]?\d+|[A-Z][A-Z0-9]+-\d+|(?:\d{2,5}[_-])?\d+))*`
 )
 
 type (
@@ -112,6 +112,19 @@ func New(cfg *config.Config, gen *pseudonym.Generator) *Engine {
 	return &Engine{rules: rules, gen: gen}
 }
 
+func redactTicketList(value string, gen *pseudonym.Generator) string {
+	var out strings.Builder
+	pos := 0
+	for _, idx := range regexp.MustCompile(`(?:#\d+|#?[A-Z]+[-_ ]?\d+|[A-Z][A-Z0-9]+-\d+|(?:\d{2,5}[_-])?\d+)`).FindAllStringSubmatchIndex(value, -1) {
+		start, end := idx[0], idx[1]
+		out.WriteString(value[pos:start])
+		out.WriteString(gen.Replacement("GIT_TICKET", value[start:end]))
+		pos = end
+	}
+	out.WriteString(value[pos:])
+	return out.String()
+}
+
 func (e *Engine) ScrubString(s string) string {
 	var ms []match
 	for _, r := range e.rules {
@@ -162,7 +175,11 @@ func (e *Engine) ScrubString(s string) string {
 	pos := 0
 	for _, m := range filtered {
 		out = append(out, s[pos:m.start]...)
-		out = append(out, e.gen.Replacement(m.typ, m.value)...)
+		if m.typ == "GIT_TICKET" && strings.Contains(m.value, ":") {
+			out = append(out, redactTicketList(m.value, e.gen)...)
+		} else {
+			out = append(out, e.gen.Replacement(m.typ, m.value)...)
+		}
 		pos = m.end
 	}
 	out = append(out, s[pos:]...)

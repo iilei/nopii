@@ -75,6 +75,26 @@ func TestScrubGitMentionMultipleRecipients(t *testing.T) {
 	}
 }
 
+func TestScrubGitMentionAlternateSeparators(t *testing.T) {
+	cfg := config.Defaults()
+	g := pseudonym.New([]byte("secret"), "scope", 12)
+	e := recognizerpkg.New(&cfg, g)
+	out := e.ScrubString(
+		"Co-authored-by: Jane Doe <jane@example.com> and Jon Doe <jon@example.com> / Alice Smith <alice@example.com> + Bob Doe <bob@example.com> & Carol Jones <carol@example.com>; Dan Roe <dan@example.com>\n",
+	)
+	for _, plain := range []string{"Jane Doe", "jon@example.com", "Alice Smith", "bob@example.com", "Carol Jones", "dan@example.com"} {
+		if strings.Contains(out, plain) {
+			t.Fatalf("git mention remained: %q", out)
+		}
+	}
+	if count := strings.Count(out, "GIT_MENTION_"); count != 6 {
+		t.Fatalf("expected 6 git mention replacements, got %d in %q", count, out)
+	}
+	if !strings.Contains(out, "Co-authored-by:") {
+		t.Fatalf("missing trailer header in %q", out)
+	}
+}
+
 func TestScrubGitTicketDefaults(t *testing.T) {
 	cfg := config.Defaults()
 	g := pseudonym.New([]byte("secret"), "scope", 12)
@@ -85,5 +105,39 @@ func TestScrubGitTicketDefaults(t *testing.T) {
 	}
 	if !strings.Contains(out, "GIT_TICKET_") {
 		t.Fatalf("missing git ticket replacement: %q", out)
+	}
+}
+
+func TestScrubGitTicketMultipleValues(t *testing.T) {
+	cfg := config.Defaults()
+	g := pseudonym.New([]byte("secret"), "scope", 12)
+	e := recognizerpkg.New(&cfg, g)
+	out := e.ScrubString("Fixes: GH-123, JIRA-0815\n")
+	if strings.Contains(out, "GH-123") || strings.Contains(out, "JIRA-0815") {
+		t.Fatalf("git ticket list remained: %q", out)
+	}
+	if count := strings.Count(out, "GIT_TICKET_"); count != 2 {
+		t.Fatalf("expected 2 git ticket replacements, got %d in %q", count, out)
+	}
+	if !strings.Contains(out, "Fixes: ") || !strings.Contains(out, ", ") {
+		t.Fatalf("expected ticket list formatting to remain: %q", out)
+	}
+}
+
+func TestScrubGitTicketAlternateSeparators(t *testing.T) {
+	cfg := config.Defaults()
+	g := pseudonym.New([]byte("secret"), "scope", 12)
+	e := recognizerpkg.New(&cfg, g)
+	out := e.ScrubString("Refs: #123 and GH-456 / JIRA-0815 + 98765 & SYS-42; 1000\n")
+	for _, plain := range []string{"#123", "GH-456", "JIRA-0815", "98765", "SYS-42", "1000"} {
+		if strings.Contains(out, plain) {
+			t.Fatalf("git ticket list remained: %q", out)
+		}
+	}
+	if count := strings.Count(out, "GIT_TICKET_"); count != 6 {
+		t.Fatalf("expected 6 git ticket replacements, got %d in %q", count, out)
+	}
+	if !strings.Contains(out, "Refs: ") {
+		t.Fatalf("missing trailer header in %q", out)
 	}
 }
