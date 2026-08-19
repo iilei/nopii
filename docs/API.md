@@ -6,6 +6,8 @@
 import "github.com/iilei/nopii/pkg/nopii"
 ```
 
+Package nopii exposes the public library surface for the nopii project.
+
 ## Index
 
 

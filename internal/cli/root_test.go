@@ -1,1 +1,1 @@
-package cli
+package cli_test

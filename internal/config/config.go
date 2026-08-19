@@ -16,6 +16,7 @@ const (
 
 	defaultConfigVersion      = 1
 	defaultScope              = "default"
+	defaultPseudonymAlgorithm = "v1"
 	defaultKeyEnv             = "NOPII_KEY"
 	defaultTokenLength        = 12
 	defaultGranularitySeconds = 86400
@@ -39,12 +40,16 @@ type (
 	Config struct {
 		Version        int
 		Scope          string
+		Pseudonyms     PseudonymConfig
 		Key            KeyConfig
 		Output         OutputConfig
 		Recognizers    RecognizersConfig
 		Classifiers    map[string]ClassifierConfig
 		CustomPatterns map[string]string
 		Git            GitConfig
+	}
+	PseudonymConfig struct {
+		Algorithm string
 	}
 	KeyConfig struct {
 		Env  string
@@ -72,6 +77,7 @@ func Defaults() Config {
 	return Config{
 		Version:        defaultConfigVersion,
 		Scope:          defaultScope,
+		Pseudonyms:     PseudonymConfig{Algorithm: defaultPseudonymAlgorithm},
 		Key:            KeyConfig{Env: defaultKeyEnv},
 		Output:         OutputConfig{TokenLength: defaultTokenLength},
 		Recognizers:    RecognizersConfig{Email: true, IPv4: true, UUID: true, Phone: true},
@@ -163,6 +169,9 @@ func validateConfig(cfg *Config) error {
 	}
 	if cfg.Output.TokenLength < minTokenLength || cfg.Output.TokenLength > maxTokenLength {
 		return errors.New("output.token_length must be between 6 and 52")
+	}
+	if cfg.Pseudonyms.Algorithm != defaultPseudonymAlgorithm {
+		return fmt.Errorf("unsupported pseudonyms.algorithm %q", cfg.Pseudonyms.Algorithm)
 	}
 	if cfg.Git.DateClamp.Enabled && cfg.Git.DateClamp.GranularitySeconds < minClampGranularity {
 		return errors.New("git.date_clamp.granularity_seconds must be at least 1")
@@ -280,6 +289,10 @@ func setSimpleValue(c *Config, k, v string) error {
 		s, e := parseString(v)
 		c.Scope = s
 		return e
+	case "pseudonyms.algorithm":
+		s, e := parseString(v)
+		c.Pseudonyms.Algorithm = s
+		return e
 	case "key.env":
 		s, e := parseString(v)
 		c.Key.Env = s
@@ -355,6 +368,7 @@ func ApplyEnv(c *Config) {
 
 func applyEnv(c *Config) {
 	applyStringEnv(&c.Scope, "NOPII_SCOPE")
+	applyStringEnv(&c.Pseudonyms.Algorithm, "NOPII_PSEUDONYMS_ALGORITHM")
 	applyBoolEnv(&c.Git.DateClamp.Enabled, "NOPII_GIT_DATE_CLAMP_ENABLED")
 	applyIntEnv(&c.Git.DateClamp.GranularitySeconds, "NOPII_GIT_DATE_CLAMP_GRANULARITY")
 	applyStringEnv(&c.Key.Env, "NOPII_KEY_ENV")

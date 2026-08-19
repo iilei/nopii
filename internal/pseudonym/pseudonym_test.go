@@ -27,3 +27,13 @@ func TestEmailNormalization(t *testing.T) {
 		t.Fatal("email normalization is not case insensitive")
 	}
 }
+
+func TestDefaultAlgorithmMatchesExplicitV1(t *testing.T) {
+	defaultGenerator := pseudonympkg.New([]byte("secret"), "default", 12)
+	explicitGenerator := pseudonympkg.NewWithAlgorithm([]byte("secret"), "default", 12, "v1")
+	got := defaultGenerator.Replacement("PERSON", "Alice")
+	want := explicitGenerator.Replacement("PERSON", "Alice")
+	if got != want {
+		t.Fatalf("default algorithm changed: %q != %q", got, want)
+	}
+}

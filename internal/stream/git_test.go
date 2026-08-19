@@ -81,7 +81,7 @@ func TestGitV1ScrubsTrailerBodyOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := out.String()
-	for _, plain := range []string{"Alice Example", "alice@example.com", "Bob Example", "bob@example.com"} {
+	for _, plain := range []string{aliceExample, aliceEmail, bobExample, bobEmail} {
 		if strings.Contains(s, plain) {
 			t.Fatalf("plain trailer PII %q remained in %q", plain, s)
 		}

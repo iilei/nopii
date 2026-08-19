@@ -21,6 +21,9 @@ const (
 # Commit this file to share consistent pseudonymization policy across a team.
 scope = "default"
 
+[pseudonyms]
+algorithm = "v1"  # stable token namespace; change only for intentional migrations
+
 [key]
 env = "NOPII_KEY"
 # file = "/run/secrets/nopii-key"

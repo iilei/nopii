@@ -51,3 +51,14 @@ func TestLoadConfigClassifiers(t *testing.T) {
 		t.Fatalf("expected classifier username mapping, got %#v", cfg.Classifiers)
 	}
 }
+
+func TestLoadConfigRejectsUnsupportedPseudonymAlgorithm(t *testing.T) {
+	path := filepath.Join(t.TempDir(), configpkg.FileName)
+	content := []byte("version = 1\n[pseudonyms]\nalgorithm = \"v2\"\n")
+	if err := os.WriteFile(path, content, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := configpkg.Load(path); err == nil {
+		t.Fatal("expected unsupported pseudonym algorithm to be rejected")
+	}
+}

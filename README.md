@@ -122,6 +122,8 @@ HMAC-SHA256(key, "nopii:v1\\0" + scope + "\\0" + entity-type + "\\0" + normalize
 ```
 
 The digest is Base32 encoded and truncated to `output.token_length` characters.
+The `v1` namespace is stable across compatible releases. It changes only for an
+intentional pseudonymization migration that must produce a new token space.
 
 ## Git integration
 
@@ -248,6 +250,9 @@ Example:
 ```toml
 version = 1
 scope = "payments"
+
+[pseudonyms]
+algorithm = "v1"  # keep stable; change only for an intentional migration
 
 [key]
 env = "NOPII_KEY"
