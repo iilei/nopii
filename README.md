@@ -269,10 +269,17 @@ phone = true
 
 [detection]
 backend = "builtin"
-# backend = "presidio"
-# command = "nopii-presidio"
-# language = "auto"  # "en", "de", or "auto"
-# timeout_ms = 3000
+# backend = "external"  # opt in to a local detector process or image
+# language = "auto"      # "en", "de", or "auto"
+# timeout_ms = 3000      # stop waiting for a detector after this duration
+
+# The image block is the TOML equivalent of GitLab CI's image.name and
+# image.entrypoint. It describes how the detector contract will be launched.
+# [detection.image]
+# runtime = "docker"      # the local container runtime to invoke
+# name = "ghcr.io/iilei/nopii-presidio:latest"
+# entrypoint = ["/usr/local/bin/nopii-presidio"]
+# network = "none"        # the detector does not need network access
 
 [git.date_clamp]
 enabled = false
@@ -310,19 +317,27 @@ CLI `--scope` overrides the config value.
 
 The built-in recognizers handle high-confidence structured values without any
 external dependencies. For names, locations and other language-dependent PII,
-you can select the local Presidio backend:
+you can select a local Presidio-compatible detector:
 
 ```toml
 [detection]
-backend = "presidio"
-command = "nopii-presidio"
-language = "auto"
-timeout_ms = 3000
+backend = "external"
+language = "auto"      # use "en" or "de" to force a language
+timeout_ms = 3000       # bound detector startup and response time
+
+[detection.image]
+runtime = "docker"     # analogous to GitLab CI's image executor
+name = "ghcr.io/iilei/nopii-presidio:latest"
+entrypoint = ["/usr/local/bin/nopii-presidio"]
+network = "none"       # keep detection local and offline
 ```
 
-The Presidio tool runs locally and returns detected text spans and entity types
-to `nopii`. `nopii` performs the replacements itself, so the external tool
-never receives the pseudonymization key and never controls the output tokens.
+This image configuration is planned; the current release implements only the
+`builtin` backend. When implemented, `nopii` will launch the image through the
+configured local runtime and exchange detector requests over stdin/stdout.
+The Presidio tool will return detected text spans and entity types to `nopii`.
+`nopii` will perform the replacements itself, so the external tool will never
+receive the pseudonymization key and will never control the output tokens.
 The backend supports English (`en`), German (`de`) and automatic language
 selection (`auto`). Install the detector and its language models separately;
 the default `builtin` backend remains a single portable Go binary.
@@ -335,9 +350,10 @@ rule IDs, line numbers and timestamps remain unchanged by default. Free-text
 fields such as finding descriptions and commit messages are passed through the
 configured recognizers.
 
-The same detector contract can be implemented by another local executable or
-service. The detector is expected to return character offsets and entity labels;
-deterministic pseudonymization remains owned by `nopii`.
+The same detector contract can be implemented by another local executable,
+container image or service. The detector is expected to return character
+offsets and entity labels; deterministic pseudonymization remains owned by
+`nopii`.
 
 ### Secret management
 
@@ -405,9 +421,13 @@ backend = "builtin"
 
 # Use a locally installed Presidio-compatible detector when language-aware
 # detection is required.
-# backend = "presidio"
-# command = "nopii-presidio"
+# backend = "external"
 # language = "auto"
+# [detection.image]
+# runtime = "docker"
+# name = "ghcr.io/iilei/nopii-presidio:latest"
+# entrypoint = ["/usr/local/bin/nopii-presidio"]
+# network = "none"
 ```
 
 A [Presidio](https://github.com/data-privacy-stack/presidio/) sidecar can run
