@@ -74,6 +74,7 @@ This repository is a v0.1 scaffold. The core design is implemented and tested:
 - environment/file based key loading
 - built-in recognizers for email, IPv4, UUID and phone-like values
 - structured Git log integration via a versioned `pretty.nopii-v1` contract
+- optional external PII detection through a local Presidio-compatible tool
 - `nopii init git`, `nopii doctor`, and `nopii config`
 - GoReleaser configuration for Linux/macOS/Windows archives and Homebrew tap
 - Chocolatey package template
@@ -121,6 +122,8 @@ HMAC-SHA256(key, "nopii:v1\\0" + scope + "\\0" + entity-type + "\\0" + normalize
 ```
 
 The digest is Base32 encoded and truncated to `output.token_length` characters.
+The `v1` namespace is stable across compatible releases. It changes only for an
+intentional pseudonymization migration that must produce a new token space.
 
 ## Git integration
 
@@ -248,6 +251,9 @@ Example:
 version = 1
 scope = "payments"
 
+[pseudonyms]
+algorithm = "v1"  # keep stable; change only for an intentional migration
+
 [key]
 env = "NOPII_KEY"
 # file = "/run/secrets/nopii-key"
@@ -260,6 +266,20 @@ email = true
 ipv4 = true
 uuid = true
 phone = true
+
+[detection]
+backend = "builtin"
+# backend = "external"  # opt in to a local detector process or image
+# language = "auto"      # "en", "de", or "auto"
+# timeout_ms = 3000      # stop waiting for a detector after this duration
+
+# The image block is the TOML equivalent of GitLab CI's image.name and
+# image.entrypoint. It describes how the detector contract will be launched.
+# [detection.image]
+# runtime = "docker"      # the local container runtime to invoke
+# name = "ghcr.io/iilei/nopii-presidio:latest"
+# entrypoint = ["/usr/local/bin/nopii-presidio"]
+# network = "none"        # the detector does not need network access
 
 [git.date_clamp]
 enabled = false
@@ -292,6 +312,48 @@ This will replace matches like `@alice` with values like `USER_...`, while
 keeping the semantic type in the output label.
 
 CLI `--scope` overrides the config value.
+
+### External PII detection
+
+The built-in recognizers handle high-confidence structured values without any
+external dependencies. For names, locations and other language-dependent PII,
+you can select a local Presidio-compatible detector:
+
+```toml
+[detection]
+backend = "external"
+language = "auto"      # use "en" or "de" to force a language
+timeout_ms = 3000       # bound detector startup and response time
+
+[detection.image]
+runtime = "docker"     # analogous to GitLab CI's image executor
+name = "ghcr.io/iilei/nopii-presidio:latest"
+entrypoint = ["/usr/local/bin/nopii-presidio"]
+network = "none"       # keep detection local and offline
+```
+
+This image configuration is planned; the current release implements only the
+`builtin` backend. When implemented, `nopii` will launch the image through the
+configured local runtime and exchange detector requests over stdin/stdout.
+The Presidio tool will return detected text spans and entity types to `nopii`.
+`nopii` will perform the replacements itself, so the external tool will never
+receive the pseudonymization key and will never control the output tokens.
+The backend supports English (`en`), German (`de`) and automatic language
+selection (`auto`). Install the detector and its language models separately;
+the default `builtin` backend remains a single portable Go binary.
+
+Structured values are traversed before text detection. JSON, newline-delimited
+JSON, YAML, TOML and CSV data retain their structure while detected values are
+replaced. Known report and metadata fields such as `author`, `committer`,
+`email`, `login` and `username` use field-aware rules, while hashes, paths,
+rule IDs, line numbers and timestamps remain unchanged by default. Free-text
+fields such as finding descriptions and commit messages are passed through the
+configured recognizers.
+
+The same detector contract can be implemented by another local executable,
+container image or service. The detector is expected to return character
+offsets and entity labels; deterministic pseudonymization remains owned by
+`nopii`.
 
 ### Secret management
 
@@ -346,39 +408,50 @@ nopii version                 print version
 7. **Version contracts.** Git uses `nopii-v1`; future incompatible formats can
    coexist instead of silently breaking existing setups.
 
-## Presidio roadmap
+## External detection roadmap
 
 The built-in recognizers deliberately cover high-confidence structured PII.
 General person/location/organization detection in arbitrary text requires a
-NER-capable backend. The planned architecture keeps this optional, for example:
+NER-capable backend. The Presidio backend is optional so the default release
+remains a single, portable Go binary:
 
 ```toml
 [detection]
 backend = "builtin"
 
-# future option
-# backend = "presidio"
-# endpoint = "http://127.0.0.1:5001"
+# Use a locally installed Presidio-compatible detector when language-aware
+# detection is required.
+# backend = "external"
+# language = "auto"
+# [detection.image]
+# runtime = "docker"
+# name = "ghcr.io/iilei/nopii-presidio:latest"
+# entrypoint = ["/usr/local/bin/nopii-presidio"]
+# network = "none"
 ```
 
-A [Presidio](https://github.com/data-privacy-stack/presidio/) sidecar can then run locally with network disabled while the Go CLI
-remains portable. The security boundary must still assume that detectors can
-miss PII.
+A [Presidio](https://github.com/data-privacy-stack/presidio/) sidecar can run
+locally with network access disabled while the Go CLI remains portable. The
+security boundary must still assume that detectors can miss PII, produce false
+positives, or require domain-specific recognizers.
 
 ## Homebrew
 
-The included `.goreleaser.yml` can publish a formula to a separate tap, e.g.
-`iilei/homebrew-tap` once that repository exists and a release token is
-configured.
-
-Target UX:
+The current release is available from the `iilei` tap:
 
 ```sh
 brew install iilei/tap/nopii
 ```
 
+Upgrade it with:
+
+```sh
+brew upgrade nopii
+```
+
 Moving to Homebrew Core can be considered after the project has sufficient
-usage and meets its acceptance requirements.
+usage and meets its acceptance requirements. The included `.goreleaser.yml`
+continues to publish the formula to the tap during releases.
 
 ## Chocolatey
 

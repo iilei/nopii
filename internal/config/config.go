@@ -2,13 +2,15 @@
 package config
 
 import (
-	"bufio"
+	"encoding"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/pelletier/go-toml/v2"
 )
 
 const (
@@ -16,62 +18,72 @@ const (
 
 	defaultConfigVersion      = 1
 	defaultScope              = "default"
+	defaultPseudonymAlgorithm = "v1"
 	defaultKeyEnv             = "NOPII_KEY"
 	defaultTokenLength        = 12
 	defaultGranularitySeconds = 86400
 	minTokenLength            = 6
 	maxTokenLength            = 52
 	minClampGranularity       = 1
-	configKeyParts            = 2
 	envKeyParts               = 2
 	customPatternPrefix       = "NOPII_CUSTOM_PATTERN__"
-	quotedStringMinLen        = 2
-	rawTOMLDelimiter          = "'''"
-	tripleQuoteLen            = 3
 )
+
+var _ encoding.TextUnmarshaler = (*ClassifierConfig)(nil)
 
 type (
 	ClassifierConfig struct {
-		Label   string
-		Pattern string
+		Label   string `toml:"label"`
+		Pattern string `toml:"pattern"`
 	}
 
 	Config struct {
-		Version        int
-		Scope          string
-		Key            KeyConfig
-		Output         OutputConfig
-		Recognizers    RecognizersConfig
-		Classifiers    map[string]ClassifierConfig
-		CustomPatterns map[string]string
-		Git            GitConfig
+		Version        int                         `toml:"version"`
+		Scope          string                      `toml:"scope"`
+		Pseudonyms     PseudonymConfig             `toml:"pseudonyms"`
+		Key            KeyConfig                   `toml:"key"`
+		Output         OutputConfig                `toml:"output"`
+		Recognizers    RecognizersConfig           `toml:"recognizers"`
+		Classifiers    map[string]ClassifierConfig `toml:"classifiers"`
+		CustomPatterns map[string]string           `toml:"custom_patterns"`
+		Git            GitConfig                   `toml:"git"`
+	}
+	PseudonymConfig struct {
+		Algorithm string `toml:"algorithm"`
 	}
 	KeyConfig struct {
-		Env  string
-		File string
+		Env  string `toml:"env"`
+		File string `toml:"file"`
 	}
 	OutputConfig struct {
-		TokenLength int
+		TokenLength int `toml:"token_length"`
 	}
 	RecognizersConfig struct {
-		Email bool
-		IPv4  bool
-		UUID  bool
-		Phone bool
+		Email bool `toml:"email"`
+		IPv4  bool `toml:"ipv4"`
+		UUID  bool `toml:"uuid"`
+		Phone bool `toml:"phone"`
 	}
 	GitConfig struct {
-		DateClamp DateClampConfig
+		DateClamp DateClampConfig `toml:"date_clamp"`
 	}
 	DateClampConfig struct {
-		Enabled            bool
-		GranularitySeconds int
+		Enabled            bool `toml:"enabled"`
+		GranularitySeconds int  `toml:"granularity_seconds"`
 	}
 )
+
+func (c *ClassifierConfig) UnmarshalText(text []byte) error {
+	c.Label = string(text)
+	c.Pattern = ""
+	return nil
+}
 
 func Defaults() Config {
 	return Config{
 		Version:        defaultConfigVersion,
 		Scope:          defaultScope,
+		Pseudonyms:     PseudonymConfig{Algorithm: defaultPseudonymAlgorithm},
 		Key:            KeyConfig{Env: defaultKeyEnv},
 		Output:         OutputConfig{TokenLength: defaultTokenLength},
 		Recognizers:    RecognizersConfig{Email: true, IPv4: true, UUID: true, Phone: true},
@@ -129,6 +141,7 @@ func Load(explicit string) (Config, string, error) {
 			return cfg, path, err
 		}
 	}
+	normalizeClassifierNames(&cfg)
 	ApplyEnv(&cfg)
 	if err := validateConfig(&cfg); err != nil {
 		return cfg, path, err
@@ -164,6 +177,9 @@ func validateConfig(cfg *Config) error {
 	if cfg.Output.TokenLength < minTokenLength || cfg.Output.TokenLength > maxTokenLength {
 		return errors.New("output.token_length must be between 6 and 52")
 	}
+	if cfg.Pseudonyms.Algorithm != defaultPseudonymAlgorithm {
+		return fmt.Errorf("unsupported pseudonyms.algorithm %q", cfg.Pseudonyms.Algorithm)
+	}
 	if cfg.Git.DateClamp.Enabled && cfg.Git.DateClamp.GranularitySeconds < minClampGranularity {
 		return errors.New("git.date_clamp.granularity_seconds must be at least 1")
 	}
@@ -177,176 +193,23 @@ func parseFile(path string, cfg *Config) error {
 		return err
 	}
 	defer func() { _ = f.Close() }()
-	section := ""
-	scanner := bufio.NewScanner(f)
-	lineNo := 0
-	for scanner.Scan() {
-		lineNo++
-		raw := strings.TrimSpace(stripComment(scanner.Text()))
-		if raw == "" {
-			continue
-		}
-		if strings.HasPrefix(raw, "[") && strings.HasSuffix(raw, "]") {
-			section = strings.TrimSpace(raw[1 : len(raw)-1])
-			continue
-		}
-		parts := strings.SplitN(raw, "=", configKeyParts)
-		if len(parts) != configKeyParts {
-			return fmt.Errorf("%s:%d: expected key = value", path, lineNo)
-		}
-		key := strings.TrimSpace(parts[0])
-		val := strings.TrimSpace(parts[1])
-		full := key
-		if section != "" {
-			full = section + "." + key
-		}
-		if err := setValue(cfg, full, val); err != nil {
-			return fmt.Errorf("%s:%d: %w", path, lineNo, err)
-		}
+	decoder := toml.NewDecoder(f)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(cfg); err != nil {
+		return fmt.Errorf("%s: %w", path, err)
 	}
-	return scanner.Err()
+	return nil
 }
 
-func stripComment(s string) string {
-	inQuote := false
-	esc := false
-	for i, r := range s {
-		if r == '\\' && inQuote && !esc {
-			esc = true
-			continue
-		}
-		if r == '"' && !esc {
-			inQuote = !inQuote
-		}
-		if r == '#' && !inQuote {
-			return s[:i]
-		}
-		esc = false
+func normalizeClassifierNames(c *Config) {
+	if len(c.Classifiers) == 0 {
+		return
 	}
-	return s
-}
-
-func parseString(v string) (string, error) {
-	if len(v) >= quotedStringMinLen {
-		switch {
-		case v[0] == '"' && v[len(v)-1] == '"':
-			u, err := strconv.Unquote(v)
-			if err != nil {
-				return "", fmt.Errorf("expected quoted string, got %q", v)
-			}
-			return u, nil
-		case v[0] == '\'' && v[len(v)-1] == '\'':
-			if len(v) >= tripleQuoteLen*2 &&
-				strings.HasPrefix(v, rawTOMLDelimiter) &&
-				strings.HasSuffix(v, rawTOMLDelimiter) {
-				return v[tripleQuoteLen : len(v)-tripleQuoteLen], nil
-			}
-			return v[1 : len(v)-1], nil
-		}
+	normalized := make(map[string]ClassifierConfig, len(c.Classifiers))
+	for name, classifier := range c.Classifiers {
+		normalized[strings.ToLower(strings.TrimSpace(name))] = classifier
 	}
-	return "", fmt.Errorf("expected quoted string, got %q", v)
-}
-
-func parseBool(v string) (bool, error) {
-	b, err := strconv.ParseBool(v)
-	if err != nil {
-		return false, fmt.Errorf("expected boolean, got %q", v)
-	}
-	return b, nil
-}
-
-func parseInt(v string) (int, error) {
-	n, err := strconv.Atoi(v)
-	if err != nil {
-		return 0, fmt.Errorf("expected integer, got %q", v)
-	}
-	return n, nil
-}
-
-func setValue(c *Config, k, v string) error {
-	if strings.HasPrefix(k, "classifiers.") {
-		return setClassifierValue(c, k, v)
-	}
-	return setSimpleValue(c, k, v)
-}
-
-func setSimpleValue(c *Config, k, v string) error {
-	switch k {
-	case "version":
-		n, e := parseInt(v)
-		c.Version = n
-		return e
-	case "scope":
-		s, e := parseString(v)
-		c.Scope = s
-		return e
-	case "key.env":
-		s, e := parseString(v)
-		c.Key.Env = s
-		return e
-	case "key.file":
-		s, e := parseString(v)
-		c.Key.File = s
-		return e
-	case "output.token_length":
-		n, e := parseInt(v)
-		c.Output.TokenLength = n
-		return e
-	case "recognizers.email":
-		b, e := parseBool(v)
-		c.Recognizers.Email = b
-		return e
-	case "recognizers.ipv4":
-		b, e := parseBool(v)
-		c.Recognizers.IPv4 = b
-		return e
-	case "recognizers.uuid":
-		b, e := parseBool(v)
-		c.Recognizers.UUID = b
-		return e
-	case "recognizers.phone":
-		b, e := parseBool(v)
-		c.Recognizers.Phone = b
-		return e
-	case "git.date_clamp.enabled":
-		b, e := parseBool(v)
-		c.Git.DateClamp.Enabled = b
-		return e
-	case "git.date_clamp.granularity_seconds":
-		n, e := parseInt(v)
-		c.Git.DateClamp.GranularitySeconds = n
-		return e
-	default:
-		return fmt.Errorf("unknown config key %q", k)
-	}
-}
-
-func setClassifierValue(c *Config, k, v string) error {
-	if c.Classifiers == nil {
-		c.Classifiers = map[string]ClassifierConfig{}
-	}
-	rest := strings.TrimPrefix(k, "classifiers.")
-	parts := strings.SplitN(rest, ".", configKeyParts)
-	name := strings.ToLower(strings.TrimSpace(parts[0]))
-	entry := c.Classifiers[name]
-	if len(parts) == 1 {
-		s, e := parseString(v)
-		entry.Label = s
-		c.Classifiers[name] = entry
-		return e
-	}
-	field := strings.ToLower(strings.TrimSpace(parts[1]))
-	s, e := parseString(v)
-	switch field {
-	case "label":
-		entry.Label = s
-	case "pattern":
-		entry.Pattern = s
-	default:
-		return fmt.Errorf("unknown classifier field %q", field)
-	}
-	c.Classifiers[name] = entry
-	return e
+	c.Classifiers = normalized
 }
 
 func ApplyEnv(c *Config) {
@@ -355,6 +218,7 @@ func ApplyEnv(c *Config) {
 
 func applyEnv(c *Config) {
 	applyStringEnv(&c.Scope, "NOPII_SCOPE")
+	applyStringEnv(&c.Pseudonyms.Algorithm, "NOPII_PSEUDONYMS_ALGORITHM")
 	applyBoolEnv(&c.Git.DateClamp.Enabled, "NOPII_GIT_DATE_CLAMP_ENABLED")
 	applyIntEnv(&c.Git.DateClamp.GranularitySeconds, "NOPII_GIT_DATE_CLAMP_GRANULARITY")
 	applyStringEnv(&c.Key.Env, "NOPII_KEY_ENV")
@@ -372,7 +236,7 @@ func applyStringEnv(dst *string, key string) {
 
 func applyBoolEnv(dst *bool, key string) {
 	if v := os.Getenv(key); v != "" {
-		if b, err := parseBool(v); err == nil {
+		if b, err := strconv.ParseBool(v); err == nil {
 			*dst = b
 		}
 	}

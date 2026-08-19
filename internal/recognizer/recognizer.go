@@ -11,6 +11,8 @@ import (
 )
 
 const (
+	gitMentionType                   = "GIT_MENTION"
+	gitTicketType                    = "GIT_TICKET"
 	gitMentionTrailerDefaultPattern  = `(?im)(?:^(?:(?:Co|Signed|Reviewed|Acked|Tested|Helped|Reported|Mentored)[ -]?authored[ -]?by|(?:Co|Signed|Reviewed|Acked|Tested|Helped|Reported|Mentored)[ -]?by|With[ -]?help[ -]?from|Collaborated[ -]?with)\s*:\s*|(?:\s*(?:,|/|\+|&|;|\band\b)\s*))("?[^"<\n]+"?\s*<[^>\n]+>)`
 	gitMentionUsernameDefaultPattern = `(?m)(?:^|[^A-Za-z0-9_])(@[A-Za-z0-9_-]+)`
 	gitTicketDefaultPattern          = `(?im)^(?:Fixes|Closes|Resolves|Refs|References|See|Ticket|Issue)\s*:\s*(?:#\d+|#?[A-Z]+[-_ ]?\d+|[A-Z][A-Z0-9]+-\d+|(?:\d{2,5}[_-])?\d+)(?:\s*(?:,|/|\+|&|;|\band\b|\s+)\s*(?:#\d+|#?[A-Z]+[-_ ]?\d+|[A-Z][A-Z0-9]+-\d+|(?:\d{2,5}[_-])?\d+))*`
@@ -82,12 +84,12 @@ func New(cfg *config.Config, gen *pseudonym.Generator) *Engine {
 	if _, override := cfg.Classifiers["git_mention"]; !override {
 		rules = append(
 			rules,
-			rule{typ: "GIT_MENTION", re: regexp.MustCompile(gitMentionTrailerDefaultPattern), priority: 90},
-			rule{typ: "GIT_MENTION", re: regexp.MustCompile(gitMentionUsernameDefaultPattern), priority: 90},
+			rule{typ: gitMentionType, re: regexp.MustCompile(gitMentionTrailerDefaultPattern), priority: 90},
+			rule{typ: gitMentionType, re: regexp.MustCompile(gitMentionUsernameDefaultPattern), priority: 90},
 		)
 	}
 	if _, override := cfg.Classifiers["git_ticket"]; !override {
-		rules = append(rules, rule{typ: "GIT_TICKET", re: regexp.MustCompile(gitTicketDefaultPattern), priority: 90})
+		rules = append(rules, rule{typ: gitTicketType, re: regexp.MustCompile(gitTicketDefaultPattern), priority: 90})
 	}
 	for name, classifier := range cfg.Classifiers {
 		pattern := classifier.Pattern
@@ -126,6 +128,14 @@ func redactTicketList(value string, gen *pseudonym.Generator) string {
 }
 
 func (e *Engine) ScrubString(s string) string {
+	ms := e.collectMatches(s)
+	if len(ms) == 0 {
+		return s
+	}
+	return e.renderMatches(s, selectMatches(ms))
+}
+
+func (e *Engine) collectMatches(s string) []match {
 	var ms []match
 	for _, r := range e.rules {
 		for _, idx := range r.re.FindAllStringSubmatchIndex(s, -1) {
@@ -139,9 +149,10 @@ func (e *Engine) ScrubString(s string) string {
 			)
 		}
 	}
-	if len(ms) == 0 {
-		return s
-	}
+	return ms
+}
+
+func selectMatches(ms []match) []match {
 	sort.Slice(ms, func(i, j int) bool {
 		if ms[i].start == ms[j].start {
 			if ms[i].end == ms[j].end {
@@ -171,11 +182,15 @@ func (e *Engine) ScrubString(s string) string {
 			*prev = m
 		}
 	}
+	return filtered
+}
+
+func (e *Engine) renderMatches(s string, ms []match) string {
 	out := make([]byte, 0, len(s))
 	pos := 0
-	for _, m := range filtered {
+	for _, m := range ms {
 		out = append(out, s[pos:m.start]...)
-		if m.typ == "GIT_TICKET" && strings.Contains(m.value, ":") {
+		if m.typ == gitTicketType && strings.Contains(m.value, ":") {
 			out = append(out, redactTicketList(m.value, e.gen)...)
 		} else {
 			out = append(out, e.gen.Replacement(m.typ, m.value)...)

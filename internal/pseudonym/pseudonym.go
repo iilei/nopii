@@ -9,19 +9,24 @@ import (
 )
 
 type Generator struct {
-	key    []byte
-	scope  string
-	length int
+	key     []byte
+	scope   string
+	length  int
+	version string
 }
 
 func New(key []byte, scope string, length int) *Generator {
-	return &Generator{key: key, scope: scope, length: length}
+	return NewWithAlgorithm(key, scope, length, "v1")
+}
+
+func NewWithAlgorithm(key []byte, scope string, length int, algorithm string) *Generator {
+	return &Generator{key: key, scope: scope, length: length, version: algorithm}
 }
 
 func (g *Generator) Token(entityType, value string) string {
 	normalized := normalize(entityType, value)
 	mac := hmac.New(sha256.New, g.key)
-	mac.Write([]byte("nopii:v1\x00"))
+	mac.Write([]byte("nopii:" + g.version + "\x00"))
 	mac.Write([]byte(g.scope))
 	mac.Write([]byte{0})
 	mac.Write([]byte(strings.ToUpper(entityType)))

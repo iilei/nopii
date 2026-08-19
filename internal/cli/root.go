@@ -72,7 +72,7 @@ func run(args []string, in io.Reader, out, errOut io.Writer) error {
 	if err != nil {
 		return err
 	}
-	gen := pseudonym.New(key, cfg.Scope, cfg.Output.TokenLength)
+	gen := pseudonym.NewWithAlgorithm(key, cfg.Scope, cfg.Output.TokenLength, cfg.Pseudonyms.Algorithm)
 	rec := recognizer.New(&cfg, gen)
 	return stream.New(gen, rec, cfg.Git.DateClamp).Process(in, out)
 }
@@ -201,10 +201,11 @@ func runConfig(args []string, out, errOut io.Writer) error {
 	}
 	_, err = fmt.Fprintf(
 		out,
-		"config = %q\nversion = %d\nscope = %q\nkey_env = %q\nkey_file = %q\ntoken_length = %d\ngit.date_clamp.enabled = %v\ngit.date_clamp.granularity_seconds = %d\n",
+		"config = %q\nversion = %d\nscope = %q\npseudonyms.algorithm = %q\nkey_env = %q\nkey_file = %q\ntoken_length = %d\ngit.date_clamp.enabled = %v\ngit.date_clamp.granularity_seconds = %d\n",
 		path,
 		cfg.Version,
 		cfg.Scope,
+		cfg.Pseudonyms.Algorithm,
 		cfg.Key.Env,
 		cfg.Key.File,
 		cfg.Output.TokenLength,
