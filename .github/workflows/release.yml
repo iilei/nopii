@@ -35,6 +35,18 @@ jobs:
           echo "pinentry-mode loopback" >> ~/.gnupg/gpg.conf
           echo "use-agent" >> ~/.gnupg/gpg.conf
 
+      # Fail fast (before the multi-minute build) if the key cannot sign,
+      # e.g. because the key or its signing subkey has expired.
+      - name: Verify GPG key can sign
+        env:
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          gpg --list-secret-keys --list-options show-unusable-subkeys
+          if ! echo "preflight" | gpg --batch --pinentry-mode loopback --passphrase "$GPG_PASSPHRASE" --detach-sign --output /dev/null; then
+            echo "::error::GPG key cannot sign (expired/revoked key or subkey?). Extend its expiry and update the GPG_PRIVATE_KEY secret."
+            exit 1
+          fi
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
